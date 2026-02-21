@@ -1,0 +1,16 @@
+# ffigen configuration for LZ4 bindings
+output: 'lib/services/native/bindings/lz4_bindings.dart'
+name: 'Lz4Bindings'
+description: 'Auto-generated Dart FFI bindings for LZ4 C library'
+
+headers:
+  entry-points:
+    - 'native/lz4/lz4.h'
+  include-directives:
+    - 'native/lz4/lz4.h'
+
+functions:
+  include:
+    - 'LZ4_compress_default'
+    - 'LZ4_compressBound'
+    - 'LZ4_decompress_safe'

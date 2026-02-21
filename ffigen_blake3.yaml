@@ -1,0 +1,24 @@
+# ffigen configuration for Blink native FFI bindings
+# Run: dart run ffigen --config ffigen.yaml
+# This auto-generates lib/services/native/bindings/ from the C headers.
+
+output: 'lib/services/native/bindings/blake3_bindings.dart'
+name: 'Blake3Bindings'
+description: 'Auto-generated Dart FFI bindings for BLAKE3 C library'
+
+headers:
+  entry-points:
+    - 'native/blake3/blake3.h'
+  include-directives:
+    - 'native/blake3/blake3.h'
+
+functions:
+  include:
+    - 'blake3_hasher_init'
+    - 'blake3_hasher_update'
+    - 'blake3_hasher_finalize'
+
+structs:
+  include:
+    - 'blake3_hasher'
+    - 'blake3_chunk_state'

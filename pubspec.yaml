@@ -1,0 +1,83 @@
+name: blink
+description: "Privacy-first, cross-platform offline file sharing. AirDrop for everyone."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── State Management ─────────────────────────────────────────────────────────
+  flutter_riverpod: ^3.2.1
+
+  # ── Navigation ───────────────────────────────────────────────────────────────
+  go_router: ^17.1.0
+
+  # ── Database ─────────────────────────────────────────────────────────────────
+  # sqflite: Android + iOS out-of-the-box.
+  # sqflite_common_ffi: Linux + Windows via native sqlite3 library.
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.4
+
+  # ── Networking · HTTP transfer server & client ───────────────────────────────
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+
+  # ── Networking · WebRTC fallback ─────────────────────────────────────────────
+  flutter_webrtc: ^1.3.0
+
+  # ── Discovery ────────────────────────────────────────────────────────────────
+  bonsoir: ^6.0.1             # mDNS/Bonjour — all platforms
+  flutter_blue_plus: ^2.1.1   # BLE beacon — Android (limited desktop)
+
+  # ── QR Code ──────────────────────────────────────────────────────────────────
+  qr_flutter: ^4.1.0          # Generate & render QR
+  mobile_scanner: ^7.2.0      # Scan QR (camera / webcam)
+
+  # ── Native Crypto via Dart FFI (libsodium pre-built) ─────────────────────────
+  # Provides: XChaCha20-Poly1305, Ed25519, X25519 (via SodiumSumo)
+  # Hardware-accelerated NEON (ARM) / SIMD (x86) — ~8-15x faster than pure Dart
+  sodium_libs: ^3.4.6
+
+  # ── UI · Animation & Motion ──────────────────────────────────────────────────
+  flutter_animate: ^4.5.2      # Declarative animation chains: .fade, .slide, .blur, .shimmer
+  animations: ^2.0.11          # Google Material Motion: container transform, shared axis
+  lottie: ^3.3.1               # Complex vector animations (loading, success, error states)
+
+  # ── UI · Typography & Icons ──────────────────────────────────────────────────
+  google_fonts: ^6.2.1         # 1500+ fonts, no local asset config — uses Inter as primary
+  flutter_svg: ^2.0.17         # Crisp SVG rendering for platform icons & custom graphics
+
+  # ── UI · Layout & Polish ─────────────────────────────────────────────────────
+  gap: ^3.0.1                  # Clean spacing: Gap(16) instead of SizedBox(height: 16)
+  shimmer: ^3.0.0              # Elegant skeleton loading states
+  flutter_staggered_animations: ^1.1.1  # List/grid staggered entrance animations
+
+  # ── Utilities ────────────────────────────────────────────────────────────────
+  path_provider: ^2.1.4
+  path: ^1.9.1
+  uuid: ^4.5.1
+  watcher: ^1.1.1             # Live folder directory watching
+  collection: ^1.19.1
+  logger: ^2.5.0
+  permission_handler: ^11.4.0
+  file_picker: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # ── Native FFI binding auto-generation (points at C headers) ─────────────────
+  ffigen: ^12.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/lottie/
+    - assets/svg/
