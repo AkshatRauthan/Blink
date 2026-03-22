@@ -7,6 +7,7 @@
 
 ## Table of Contents
 
+### Core Screens
 1. [Onboarding Screen](#1-onboarding-screen)
 2. [Discovery / Radar Screen](#2-discovery--radar-screen)
 3. [QR Show Screen](#3-qr-show-screen)
@@ -16,6 +17,23 @@
 7. [Chat Screen](#7-chat-screen)
 8. [Live Folders Screen](#8-live-folders-screen)
 9. [Settings Screen](#9-settings-screen)
+
+### New Screens (Added March 2026)
+10. [Contact Groups Screen](#10-contact-groups-screen)
+11. [Classroom Mode Screen](#11-classroom-mode-screen)
+
+### Desktop Screens
+12. [Desktop Discovery Screen](#12-desktop-discovery-screen)
+13. [Desktop Transfer Screen](#13-desktop-transfer-screen)
+
+### Component Libraries
+14. [Bottom Navigation Bar](#14-bottom-navigation-bar)
+15. [Empty States](#15-empty-states)
+16. [Loading Skeletons](#16-loading-skeletons)
+17. [Transfer Card States](#17-transfer-card-states)
+18. [Button Components](#18-button-components)
+19. [Input Components](#19-input-components)
+20. [Dialog Components](#20-dialog-components)
 
 ---
 
@@ -358,3 +376,216 @@ All routes defined in `lib/app.dart` → `AppRoutes`:
 | `chat` | `/chat` | `ChatScreen` |
 | `liveFolders` | `/live-folders` | `LiveFolderScreen` |
 | `settings` | `/settings` | `SettingsScreen` |
+
+---
+
+## 10. Contact Groups Screen
+
+| Key | Value |
+|---|---|
+| **File** | `lib/features/groups/screens/groups_screen.dart` |
+| **Route** | `/groups` (`AppRoutes.groups`) |
+| **Provider** | `groupsNotifierProvider` |
+| **State** | `List<ContactGroup>` |
+| **Stitch Screen** | Generated March 2026 |
+
+### Description
+Manage device groups for quick multi-device sharing. Groups persist across sessions and allow one-tap sharing to multiple devices.
+
+### Key UI Elements
+- **Groups list** — Grid or list layout of saved groups
+- **Group card** — Shows avatar stack of member devices, group name, member count, chevron for navigation
+- **Empty state** — Folder icon with "Create your first group" message
+- **FAB** — Gradient purple-cyan "New Group" button
+
+### Navigation
+- **Group card tap** → Group detail view
+- **FAB tap** → Create group flow
+
+---
+
+## 11. Classroom Mode Screen
+
+| Key | Value |
+|---|---|
+| **File** | `lib/features/classroom/screens/classroom_screen.dart` |
+| **Route** | `/classroom` (`AppRoutes.classroom`) |
+| **Provider** | `classroomNotifierProvider` |
+| **State** | `ClassroomSession { isActive, connectedDevices, sessionCode }` |
+| **Stitch Screen** | Generated March 2026 |
+
+### Description
+One-to-many broadcast mode for presentations, classes, or team file distribution.
+
+### Key UI Elements
+- **Broadcast status card** — Shows "BROADCASTING TO X devices", session code (e.g., BLINK-4827)
+- **Connected devices row** — Avatar/icon stack with overflow indicator (+N)
+- **Send to All button** — Gradient primary button for file broadcast
+- **Stop Broadcasting button** — Coral red outline button to end session
+
+### Navigation
+- **File select** → Standard file picker
+- **Stop** → Returns to Discovery screen
+
+---
+
+## 12. Desktop Discovery Screen
+
+| Key | Value |
+|---|---|
+| **File** | `lib/features/discovery/screens/discovery_screen.dart` (adaptive) |
+| **Route** | `/` (`AppRoutes.discovery`) |
+| **Layout** | Sidebar rail + main content |
+| **Stitch Screen** | Generated March 2026 (DESKTOP) |
+
+### Description
+Desktop variant with collapsible sidebar navigation. Shows radar visualization in the main content area.
+
+### Key UI Elements
+- **Sidebar rail** — 72px collapsed width, icons for Radar (active), Transfer, Chat, Folders, Settings
+- **Main content** — Radar visualization, device bubbles, Select Files button
+- **Top bar** — Blink title, QR and Settings action icons
+
+---
+
+## 13. Desktop Transfer Screen
+
+| Key | Value |
+|---|---|
+| **File** | `lib/features/transfer/screens/transfer_screen.dart` (adaptive) |
+| **Route** | `/transfer` (`AppRoutes.transfer`) |
+| **Layout** | Sidebar rail + split panel |
+| **Stitch Screen** | Generated March 2026 (DESKTOP) |
+
+### Description
+Desktop transfer management with split view for Send and Receive panels.
+
+### Key UI Elements
+- **Sidebar rail** — Transfer icon highlighted
+- **Split view** — Left panel for Send transfers, Right panel for Receive transfers
+- **Transfer cards** — Same as mobile with progress bars and status chips
+
+---
+
+## 14. Bottom Navigation Bar
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/bottom_nav_bar.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Tabs
+1. **Discovery** — Radar icon, active state purple filled
+2. **Transfer** — Up/down arrows icon
+3. **Chat** — Chat bubble icon with optional badge
+4. **Folders** — Folder icon
+5. **Settings** — Gear icon
+
+### States
+- Active: Purple #6C63FF filled icon with subtle glow
+- Inactive: Grey #9CA3AF outline icon
+- Badge: Coral dot for unread notifications
+
+---
+
+## 15. Empty States
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/empty_state.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Variants
+1. **No Devices Found** — Radar icon with dashed circle, "No devices nearby"
+2. **No Transfers** — Cloud with arrows, "No transfers yet"
+3. **No Messages** — Chat bubble outline, "Start a conversation"
+4. **No Folders** — Folder outline, "No folders synced"
+
+---
+
+## 16. Loading Skeletons
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/skeleton_loader.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Variants
+- Transfer Card skeleton
+- Device Bubble skeleton
+- Chat Message skeleton
+- Settings Tile skeleton
+
+Uses shimmer animation with #252533 base and #3A3A4E highlight.
+
+---
+
+## 17. Transfer Card States
+
+| Key | Value |
+|---|---|
+| **File** | `lib/features/transfer/widgets/transfer_card.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### States
+1. **Pending** — Amber status chip, waiting
+2. **Transferring** — Progress bar, spinner, speed label
+3. **Paused** — Amber chip, Resume button
+4. **Completed** — Green check, BLAKE3 Verified badge
+5. **Failed** — Red chip, Retry button, error message
+6. **Cancelled** — Grey chip, dimmed card
+
+---
+
+## 18. Button Components
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/blink_button.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Variants
+- **Primary** — Gradient pill button (default, hover, pressed, loading, disabled)
+- **Secondary** — Outlined button
+- **Text** — No background button
+- **Icon** — Circular (filled, outlined, ghost)
+- **FAB** — Floating action button
+- **Destructive** — Coral red for delete/cancel
+
+---
+
+## 19. Input Components
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/blink_input.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Variants
+- **Text Field** — Single line (empty, filled, focused, error, disabled)
+- **Text Area** — Multi-line
+- **Search Bar** — Pill with search icon and clear button
+- **Toggle Switch** — Cupertino style (on purple, off grey)
+- **Checkbox** — Unchecked, checked, indeterminate
+
+---
+
+## 20. Dialog Components
+
+| Key | Value |
+|---|---|
+| **File** | `lib/shared/widgets/blink_dialog.dart` |
+| **Type** | Component |
+| **Stitch Screen** | Generated March 2026 |
+
+### Variants
+1. **Alert Dialog** — Icon, title, message, OK button
+2. **Confirm Dialog** — Warning icon, title, message, Cancel/Confirm buttons
+3. **Input Dialog** — Title, text field, Cancel/Save buttons
+4. **Bottom Sheet** — Slide up with drag handle, options list
