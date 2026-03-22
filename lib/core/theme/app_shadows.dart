@@ -2,23 +2,112 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Blink elevation / shadow tokens.
+/// Blink "Midnight Obsidian" Design System — Elevation & Shadow Tokens
 ///
-/// Designed for a soft, layered aesthetic (think iOS depth system):
-/// - **sm**  — subtle lift for cards, list tiles
-/// - **md**  — modals, bottom sheets
-/// - **lg**  — floating action buttons, top-level overlays
-/// - **glow** — brand-colored ambient glow for primary actions
+/// Four-level elevation system for depth and focus:
+/// - **elevation0** — Flat surfaces, no shadow
+/// - **elevation1** — Cards, containers
+/// - **elevation2** — Dropdowns, popovers
+/// - **elevation3** — Modals, dialogs
+/// - **elevation4** — Full-screen overlays
+///
+/// Plus glow effects for interactive elements.
 abstract class BlinkShadows {
-  // ── Light mode ────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // ELEVATION SYSTEM (DARK MODE - PRIMARY)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Level 0: No shadow (flat surfaces)
+  static const List<BoxShadow> elevation0 = [];
+
+  /// Level 1: Cards, containers — subtle lift
+  static const List<BoxShadow> elevation1 = [
+    BoxShadow(
+      color: Color(0x66000000), // 40% black
+      blurRadius: 8,
+      offset: Offset(0, 2),
+    ),
+  ];
+
+  /// Level 2: Dropdowns, popovers
+  static const List<BoxShadow> elevation2 = [
+    BoxShadow(
+      color: Color(0x80000000), // 50% black
+      blurRadius: 16,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+  /// Level 3: Modals, dialogs
+  static const List<BoxShadow> elevation3 = [
+    BoxShadow(
+      color: Color(0x99000000), // 60% black
+      blurRadius: 32,
+      offset: Offset(0, 8),
+    ),
+  ];
+
+  /// Level 4: Full-screen overlays
+  static const List<BoxShadow> elevation4 = [
+    BoxShadow(
+      color: Color(0xB3000000), // 70% black
+      blurRadius: 48,
+      offset: Offset(0, 16),
+    ),
+  ];
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // GLOW EFFECTS (Interactive elements)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Primary button focus/hover glow
+  static List<BoxShadow> glowPrimary = [
+    BoxShadow(
+      color: BlinkColors.primary.withValues(alpha: 0.5),
+      blurRadius: 20,
+      spreadRadius: 0,
+    ),
+  ];
+
+  /// Accent highlight glow (active device, selected item)
+  static List<BoxShadow> glowAccent = [
+    BoxShadow(
+      color: BlinkColors.accent.withValues(alpha: 0.5),
+      blurRadius: 20,
+      spreadRadius: 0,
+    ),
+  ];
+
+  /// Success indicator glow (online status)
+  static List<BoxShadow> glowSuccess = [
+    BoxShadow(
+      color: BlinkColors.success.withValues(alpha: 0.4),
+      blurRadius: 12,
+      spreadRadius: 0,
+    ),
+  ];
+
+  /// Error indicator glow
+  static List<BoxShadow> glowError = [
+    BoxShadow(
+      color: BlinkColors.error.withValues(alpha: 0.4),
+      blurRadius: 12,
+      spreadRadius: 0,
+    ),
+  ];
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LEGACY ALIASES (backward compatibility)
+  // ══════════════════════════════════════════════════════════════════════════
+
   static const List<BoxShadow> smLight = [
     BoxShadow(
-      color: Color(0x0A000000), // 4 % black
+      color: Color(0x0A000000),
       blurRadius: 8,
       offset: Offset(0, 2),
     ),
     BoxShadow(
-      color: Color(0x05000000), // 2 % black
+      color: Color(0x05000000),
       blurRadius: 4,
       offset: Offset(0, 1),
     ),
@@ -26,12 +115,12 @@ abstract class BlinkShadows {
 
   static const List<BoxShadow> mdLight = [
     BoxShadow(
-      color: Color(0x12000000), // 7 % black
+      color: Color(0x12000000),
       blurRadius: 20,
       offset: Offset(0, 8),
     ),
     BoxShadow(
-      color: Color(0x08000000), // 3 % black
+      color: Color(0x08000000),
       blurRadius: 8,
       offset: Offset(0, 2),
     ),
@@ -39,58 +128,23 @@ abstract class BlinkShadows {
 
   static const List<BoxShadow> lgLight = [
     BoxShadow(
-      color: Color(0x1A000000), // 10 % black
+      color: Color(0x1A000000),
       blurRadius: 32,
       offset: Offset(0, 16),
     ),
     BoxShadow(
-      color: Color(0x0D000000), // 5 % black
+      color: Color(0x0D000000),
       blurRadius: 12,
       offset: Offset(0, 4),
     ),
   ];
 
-  // ── Dark mode ─────────────────────────────────────────────────────
-  static const List<BoxShadow> smDark = [
-    BoxShadow(
-      color: Color(0x30000000), // 19 % black
-      blurRadius: 8,
-      offset: Offset(0, 2),
-    ),
-  ];
+  static const List<BoxShadow> smDark = elevation1;
+  static const List<BoxShadow> mdDark = elevation2;
+  static const List<BoxShadow> lgDark = elevation3;
 
-  static const List<BoxShadow> mdDark = [
-    BoxShadow(
-      color: Color(0x50000000), // 31 % black
-      blurRadius: 24,
-      offset: Offset(0, 8),
-    ),
-  ];
-
-  static const List<BoxShadow> lgDark = [
-    BoxShadow(
-      color: Color(0x70000000), // 44 % black
-      blurRadius: 40,
-      offset: Offset(0, 16),
-    ),
-  ];
-
-  // ── Brand glow (primary button hover / pressed) ───────────────────
-  static List<BoxShadow> primaryGlow = [
-    BoxShadow(
-      color: BlinkColors.primary.withValues(alpha: 0.35),
-      blurRadius: 24,
-      offset: const Offset(0, 6),
-    ),
-  ];
-
-  static List<BoxShadow> accentGlow = [
-    BoxShadow(
-      color: BlinkColors.accent.withValues(alpha: 0.30),
-      blurRadius: 20,
-      offset: const Offset(0, 4),
-    ),
-  ];
+  static List<BoxShadow> primaryGlow = glowPrimary;
+  static List<BoxShadow> accentGlow = glowAccent;
 
   /// Returns the correct shadow set for the given [brightness] and [level].
   static List<BoxShadow> of(
@@ -101,9 +155,9 @@ abstract class BlinkShadows {
       (Brightness.light, ShadowLevel.sm) => smLight,
       (Brightness.light, ShadowLevel.md) => mdLight,
       (Brightness.light, ShadowLevel.lg) => lgLight,
-      (Brightness.dark, ShadowLevel.sm) => smDark,
-      (Brightness.dark, ShadowLevel.md) => mdDark,
-      (Brightness.dark, ShadowLevel.lg) => lgDark,
+      (Brightness.dark, ShadowLevel.sm) => elevation1,
+      (Brightness.dark, ShadowLevel.md) => elevation2,
+      (Brightness.dark, ShadowLevel.lg) => elevation3,
     };
   }
 }

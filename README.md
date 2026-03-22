@@ -1,3 +1,3 @@
-# blink
+# Blink
 
 A new Flutter project.

@@ -1,90 +1,142 @@
 import 'package:flutter/material.dart';
 
-/// Blink's semantic colour palette.
+/// Blink "Midnight Obsidian" Design System — Colour Tokens
 ///
-/// Designed for an AirDrop-like aesthetic: deep purples, electric accents,
-/// soft neutrals. Works in both light and dark modes via [BlinkColorScheme].
+/// A modern dark-first palette with electric purple primary and cyan accents.
+/// Follows the "No-Line Rule": visual hierarchy through background shifts, not borders.
 ///
-/// Usage: `BlinkColors.primary` for raw values,
-///        `context.colors.surface` for theme-aware access (via extension).
+/// Usage:
+/// - Raw values: `BlinkColors.primary`
+/// - Theme-aware: `context.colors.surface` (via extension)
 abstract class BlinkColors {
-  // ── Brand ────────────────────────────────────────────────────────────────
-  /// Core brand purple — used for primary actions, FABs, active states.
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRAND COLORS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Electric Violet — primary actions, FABs, active states, buttons
   static const Color primary = Color(0xFF6C63FF);
 
-  /// Lighter tint for hover/focus/pressed states.
+  /// Hover/focus state for primary
+  static const Color primaryHover = Color(0xFF7C74FF);
+
+  /// Muted primary (20% opacity) — backgrounds, subtle highlights
+  static const Color primaryMuted = Color(0x336C63FF);
+
+  /// Darker variant for pressed states
+  static const Color primaryDark = Color(0xFF5A52E0);
+
+  /// Legacy alias
   static const Color primaryLight = Color(0xFF9D97FF);
 
-  /// Dark variant for text-on-primary contexts.
-  static const Color primaryDark = Color(0xFF4A42DB);
+  // ══════════════════════════════════════════════════════════════════════════
+  // ACCENT COLORS
+  // ══════════════════════════════════════════════════════════════════════════
 
-  // ── Accent ───────────────────────────────────────────────────────────────
-  /// Electric cyan — discovery radar rings, active connections.
+  /// Cyan — highlights, progress bars, active indicators
   static const Color accent = Color(0xFF00D9FF);
 
-  /// Warm coral — notifications, alerts, send actions.
-  static const Color coral = Color(0xFFFF6B6B);
+  /// Muted accent (20% opacity) — glows, subtle backgrounds
+  static const Color accentMuted = Color(0x3300D9FF);
 
-  /// Fresh mint — success states, completed transfers.
-  static const Color mint = Color(0xFF2ED47A);
+  // ══════════════════════════════════════════════════════════════════════════
+  // SEMANTIC COLORS
+  // ══════════════════════════════════════════════════════════════════════════
 
-  /// Amber — warning, paused states.
-  static const Color amber = Color(0xFFFFBB33);
+  /// Success — completed, online, verified
+  static const Color success = Color(0xFF4ADE80);
+  static const Color successMuted = Color(0x334ADE80);
 
-  // ── Neutral ──────────────────────────────────────────────────────────────
+  /// Warning — pending, caution, paused
+  static const Color warning = Color(0xFFFBBF24);
+  static const Color warningMuted = Color(0x33FBBF24);
+
+  /// Error — failed, offline, errors
+  static const Color error = Color(0xFFF87171);
+  static const Color errorMuted = Color(0x33F87171);
+
+  /// Info — informational
+  static const Color info = Color(0xFF60A5FA);
+  static const Color infoMuted = Color(0x3360A5FA);
+
+  // Legacy aliases
+  static const Color mint = success;
+  static const Color coral = error;
+  static const Color amber = warning;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // NEUTRAL COLORS
+  // ══════════════════════════════════════════════════════════════════════════
+
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
-  // ── Light mode surfaces ──────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // DARK MODE SURFACES (Primary theme)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// True black base — OLED optimization, splash screens
+  static const Color darkBase = Color(0xFF000000);
+
+  /// Main app background
+  static const Color darkBackground = Color(0xFF0D0D12);
+
+  /// Cards, containers, elevated surfaces
+  static const Color darkSurface = Color(0xFF1A1A2E);
+
+  /// Modals, dialogs, dropdowns
+  static const Color darkElevated = Color(0xFF2A2A3C);
+
+  /// Hover states on surfaces
+  static const Color darkHover = Color(0xFF35354A);
+
+  /// Legacy aliases
+  static const Color darkSurfaceVariant = darkElevated;
+  static const Color darkCardBorder = Color(0xFF35354A);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LIGHT MODE SURFACES
+  // ══════════════════════════════════════════════════════════════════════════
+
   static const Color lightBackground = Color(0xFFF8F9FC);
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightSurfaceVariant = Color(0xFFF0F1F5);
+  static const Color lightElevated = Color(0xFFFFFFFF);
+  static const Color lightHover = Color(0xFFE8E9EE);
   static const Color lightCardBorder = Color(0xFFE8E9EE);
 
-  // ── Dark mode surfaces ───────────────────────────────────────────────────
-  static const Color darkBackground = Color(0xFF0D0D12);
-  static const Color darkSurface = Color(0xFF1A1A24);
-  static const Color darkSurfaceVariant = Color(0xFF252533);
-  static const Color darkCardBorder = Color(0xFF2E2E3E);
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEXT COLORS
+  // ══════════════════════════════════════════════════════════════════════════
 
-  // ── Text ─────────────────────────────────────────────────────────────────
-  static const Color lightTextPrimary = Color(0xFF1A1A2E);
+  // Dark mode text (on dark backgrounds)
+  static const Color darkTextPrimary = Color(0xFFFFFFFF);
+  static const Color darkTextSecondary = Color(0xFFA0A0B0);
+  static const Color darkTextTertiary = Color(0xFF666680);
+
+  // Light mode text (on light backgrounds)
+  static const Color lightTextPrimary = Color(0xFF0D0D12);
   static const Color lightTextSecondary = Color(0xFF6B7280);
   static const Color lightTextTertiary = Color(0xFFA0A5B5);
 
-  static const Color darkTextPrimary = Color(0xFFF3F4F8);
-  static const Color darkTextSecondary = Color(0xFF9CA3AF);
-  static const Color darkTextTertiary = Color(0xFF6B7280);
+  // Inverse text (on colored backgrounds)
+  static const Color textOnPrimary = Color(0xFFFFFFFF);
+  static const Color textOnAccent = Color(0xFF0D0D12);
 
-  // ── Semantic ─────────────────────────────────────────────────────────────
-  static const Color error = Color(0xFFEF4444);
-  static const Color success = Color(0xFF2ED47A);
-  static const Color warning = Color(0xFFFFBB33);
-  static const Color info = Color(0xFF3B82F6);
+  // ══════════════════════════════════════════════════════════════════════════
+  // GRADIENTS (raw color stops)
+  // ══════════════════════════════════════════════════════════════════════════
 
-  // ── Gradients (raw stops) ────────────────────────────────────────────────
-  /// Hero gradient for the discovery radar background.
-  static const List<Color> radarGradient = [
-    Color(0xFF6C63FF),
-    Color(0xFF00D9FF),
-  ];
+  /// Hero gradient for discovery radar
+  static const List<Color> radarGradient = [primary, accent];
 
-  /// Gradient for active transfer progress bars.
-  static const List<Color> progressGradient = [
-    Color(0xFF6C63FF),
-    Color(0xFF9D97FF),
-  ];
+  /// Progress bars
+  static const List<Color> progressGradient = [primary, primaryHover];
 
-  /// Subtle surface gradient for card backgrounds.
-  static const List<Color> cardGradientLight = [
-    Color(0xFFF8F9FC),
-    Color(0xFFFFFFFF),
-  ];
+  /// Card backgrounds (dark)
+  static const List<Color> cardGradientDark = [darkSurface, darkElevated];
 
-  static const List<Color> cardGradientDark = [
-    Color(0xFF1A1A24),
-    Color(0xFF252533),
-  ];
+  /// Card backgrounds (light)
+  static const List<Color> cardGradientLight = [lightSurface, lightSurfaceVariant];
 }
 
 /// Pre-built [LinearGradient] instances for the most common UI patterns.
