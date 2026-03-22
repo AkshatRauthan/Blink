@@ -38,9 +38,9 @@ dependencies:
   mobile_scanner: ^7.2.0      # Scan QR (camera / webcam)
 
   # ── Native Crypto via Dart FFI (libsodium pre-built) ─────────────────────────
-  # Provides: XChaCha20-Poly1305, Ed25519, X25519 (via SodiumSumo)
+  # Provides: XChaCha20-Poly1305, Ed25519, X25519 (via sodium)
   # Hardware-accelerated NEON (ARM) / SIMD (x86) — ~8-15x faster than pure Dart
-  sodium_libs: ^3.4.6
+  sodium:
 
   # ── UI · Animation & Motion ──────────────────────────────────────────────────
   flutter_animate: ^4.5.2      # Declarative animation chains: .fade, .slide, .blur, .shimmer
@@ -48,7 +48,7 @@ dependencies:
   lottie: ^3.3.1               # Complex vector animations (loading, success, error states)
 
   # ── UI · Typography & Icons ──────────────────────────────────────────────────
-  google_fonts: ^6.2.1         # 1500+ fonts, no local asset config — uses Inter as primary
+  google_fonts: ^8.0.2         # 1500+ fonts, no local asset config — uses Inter as primary
   flutter_svg: ^2.0.17         # Crisp SVG rendering for platform icons & custom graphics
 
   # ── UI · Layout & Polish ─────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ dependencies:
   watcher: ^1.1.1             # Live folder directory watching
   collection: ^1.19.1
   logger: ^2.5.0
-  permission_handler: ^11.4.0
-  file_picker: ^8.0.0
+  permission_handler: ^12.0.1
+  file_picker: ^10.3.10
 
 dev_dependencies:
   flutter_test:
@@ -72,7 +72,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
   # ── Native FFI binding auto-generation (points at C headers) ─────────────────
-  ffigen: ^12.0.0
+  ffigen: ^20.1.1
 
 flutter:
   uses-material-design: true

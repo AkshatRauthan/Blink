@@ -7,7 +7,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_blue_plus_winrt
   flutter_webrtc
   permission_handler_windows
-  sodium_libs
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

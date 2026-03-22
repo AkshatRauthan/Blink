@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+// 1. Updated import to use the official sodium package
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../core/utils/logger.dart';
 
-/// Wraps libsodium (via [sodium_libs]) to provide authenticated encryption.
+/// Wraps libsodium (via [sodium]) to provide authenticated encryption.
 ///
 /// Uses **XChaCha20-Poly1305-IETF** — the recommended AEAD construction in
 /// libsodium. It is hardware-accelerated on modern CPUs and provides 192-bit
@@ -21,7 +22,8 @@ class NativeCryptoService {
 
   Future<void> init() async {
     if (_ready) return;
-    _sodium = await SodiumSumoInit.init();
+    // 2. Initialization remains identical
+    _sodium = await SodiumSumoInit.init(); 
     _ready = true;
     Log.i('[NativeCrypto] libsodium initialised — '
         'XChaCha20-Poly1305-IETF AEAD ready');
