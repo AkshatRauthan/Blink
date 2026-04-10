@@ -11,6 +11,7 @@ import '../../core/utils/logger.dart';
 import '../../data/models/transfer_session.dart';
 import '../../data/models/transfer_file.dart';
 import '../../data/repositories/transfer_repository.dart';
+import 'transfer_isolate.dart';
 
 /// Orchestrates multi-file transfer sessions.
 ///
@@ -71,7 +72,9 @@ class TransferManager {
       );
     }
 
-    Log.i('[TransferManager] Session $sessionId started (${files.length} files)');
+    Log.i(
+      '[TransferManager] Session $sessionId started (${files.length} files)',
+    );
     return session;
   }
 
@@ -82,8 +85,43 @@ class TransferManager {
     required String remoteIp,
     required int remotePort,
   }) async {
-    // TODO: Spawn Isolate with TransferIsolateArgs and handle progress messages
     Log.d('[TransferManager] Spawning isolate for ${files.length} files');
+
+    final receivePort = ReceivePort();
+    final args = TransferIsolateArgs(
+      sessionId: sessionId,
+      filePaths: files.map((f) => f.path).toList(),
+      sessionKey: sessionKey,
+      remoteIp: remoteIp,
+      remotePort: remotePort,
+      progressPort: receivePort.sendPort,
+    );
+
+    final isolate = await Isolate.spawn(transferIsolateMain, args);
+    _active[sessionId] = isolate;
+
+    receivePort.listen((message) {
+      if (message is TransferProgress) {
+        if (message.error != null) {
+          Log.e(
+            '[TransferManager] Error in session ${message.sessionId}: ${message.error}',
+          );
+          _active.remove(message.sessionId)?.kill();
+          receivePort.close();
+          return;
+        }
+
+        Log.d(
+          '[TransferManager] Progress ${message.sessionId}: ${message.bytesTransferred} / ${message.totalBytes} bytes',
+        );
+
+        if (message.completed) {
+          Log.i('[TransferManager] Transfer complete for ${message.filePath}');
+          // Remove isolate cleanup logic happens after all files finish
+          // Here we could keep count of completed files per session and then kill
+        }
+      }
+    });
   }
 
   /// Partitions [list] into sublists of maximum [size].
