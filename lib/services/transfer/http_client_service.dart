@@ -31,10 +31,20 @@ class HttpClientService {
       // TODO: Write session init JSON body
       final resp = await req.close();
       await resp.drain();
-      Log.i('[HttpClient] Session $sessionId opened on $remoteIp:$remotePort');
+      Log.i(
+        'Session $sessionId opened on $remoteIp:$remotePort',
+        source: LogSource.network,
+        component: 'HttpClient',
+      );
       return resp.statusCode == HttpStatus.ok;
     } catch (e, s) {
-      Log.e('[HttpClient] beginSession failed', error: e, stackTrace: s);
+      Log.e(
+        'beginSession failed',
+        source: LogSource.network,
+        component: 'HttpClient',
+        error: e,
+        stackTrace: s,
+      );
       return false;
     }
   }
@@ -63,7 +73,13 @@ class HttpClientService {
       await resp.drain();
       return resp.statusCode == HttpStatus.ok;
     } catch (e, s) {
-      Log.e('[HttpClient] sendChunk failed', error: e, stackTrace: s);
+      Log.e(
+        'sendChunk failed',
+        source: LogSource.network,
+        component: 'HttpClient',
+        error: e,
+        stackTrace: s,
+      );
       return false;
     }
   }

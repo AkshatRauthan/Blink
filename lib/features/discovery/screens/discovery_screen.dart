@@ -10,6 +10,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/logger.dart';
 import '../../../data/models/device.dart';
 import '../providers/discovery_provider.dart';
 import '../widgets/device_bubble.dart';
@@ -32,6 +33,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   @override
   void initState() {
     super.initState();
+    Log.i(
+      'Discovery screen initialised',
+      source: LogSource.ui,
+      component: 'DiscoveryScreen',
+    );
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -40,6 +46,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
 
   @override
   void dispose() {
+    Log.i(
+      'Discovery screen disposed',
+      source: LogSource.ui,
+      component: 'DiscoveryScreen',
+    );
     _radarController.dispose();
     super.dispose();
   }
@@ -76,12 +87,26 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               icon: const Icon(Icons.qr_code_scanner_rounded,
                   color: BlinkColors.darkTextPrimary),
               tooltip: AppStrings.pairingScanQr,
-              onPressed: () => context.push(AppRoutes.qrScan),
+              onPressed: () {
+                Log.l(
+                  'Navigate to QR scanner',
+                  source: LogSource.ui,
+                  component: 'DiscoveryScreen',
+                );
+                context.push(AppRoutes.qrScan);
+              },
             ),
             IconButton(
               icon: const Icon(Icons.settings_rounded,
                   color: BlinkColors.darkTextPrimary),
-              onPressed: () => context.push(AppRoutes.settings),
+              onPressed: () {
+                Log.l(
+                  'Navigate to settings',
+                  source: LogSource.ui,
+                  component: 'DiscoveryScreen',
+                );
+                context.push(AppRoutes.settings);
+              },
             ),
             const Gap(BlinkSpacing.xs),
           ],
@@ -178,6 +203,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           bottom: BlinkSpacing.xxl,
           child: _RadarFab(
             onPressed: () {
+                Log.l(
+                  'Select files action tapped',
+                  source: LogSource.ui,
+                  component: 'DiscoveryScreen',
+                );
               // TODO: Open file picker
             },
           ).animate(effects: BlinkEffects.fadeSlideUp),

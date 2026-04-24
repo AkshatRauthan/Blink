@@ -37,7 +37,15 @@ class HttpServerService {
       ..post('/transfer/<id>/metadata', (Request req, String id) => _handleMetadata(req, id));
 
     final handler = Pipeline()
-        .addMiddleware(logRequests(logger: (msg, _) => Log.d('[Server] $msg')))
+        .addMiddleware(
+          logRequests(
+            logger: (msg, _) => Log.d(
+              msg,
+              source: LogSource.network,
+              component: 'HttpServer',
+            ),
+          ),
+        )
         .addHandler(router.call);
 
     _server = await shelf_io.serve(
@@ -46,7 +54,11 @@ class HttpServerService {
       AppConstants.transferPort,
     );
     _running = true;
-    Log.i('[HttpServer] Listening on port ${AppConstants.transferPort}');
+    Log.i(
+      'Listening on port ${AppConstants.transferPort}',
+      source: LogSource.network,
+      component: 'HttpServer',
+    );
   }
 
   Future<Response> _handleBegin(Request req, Uint8List sessionKey) async {
@@ -76,7 +88,11 @@ class HttpServerService {
   Future<void> stop() async {
     await (_server as dynamic)?.close(force: true);
     _running = false;
-    Log.i('[HttpServer] Stopped');
+    Log.i(
+      'Stopped',
+      source: LogSource.network,
+      component: 'HttpServer',
+    );
   }
 }
 
