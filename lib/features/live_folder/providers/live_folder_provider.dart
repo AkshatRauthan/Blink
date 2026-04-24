@@ -32,13 +32,21 @@ class LiveFolderNotifier extends Notifier<LiveFolderState> {
     if (_watchers.containsKey(path)) return;
     final watcher = DirectoryWatcher(path);
     final sub = watcher.events.listen((event) {
-      Log.d('[LiveFolder] Change: ${event.type} ${event.path}');
+      Log.d(
+        'Change: ${event.type} ${event.path}',
+        source: LogSource.ui,
+        component: 'LiveFolderNotifier',
+      );
       // TODO: Queue changed files for transfer to paired device
     });
     _watchers[path] = watcher;
     _subs[path] = sub;
     state = state.copyWith(syncedFolders: [...state.syncedFolders, path]);
-    Log.i('[LiveFolder] Watching: $path');
+    Log.i(
+      'Watching: $path',
+      source: LogSource.ui,
+      component: 'LiveFolderNotifier',
+    );
   }
 
   Future<void> removeFolder(String path) async {

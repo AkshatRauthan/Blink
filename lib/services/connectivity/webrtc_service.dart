@@ -19,13 +19,21 @@ class WebRtcService {
     // TODO: Import flutter_webrtc and initialise WebRTC stack
     // await WebRTC.initialize();
     _initialised = true;
-    Log.i('[WebRTC] Service initialised');
+    Log.i(
+      'Service initialised',
+      source: LogSource.network,
+      component: 'WebRtcService',
+    );
   }
 
   /// Creates a WebRTC peer connection with the given ICE configuration.
   Future<void> createPeerConnection(String remoteDeviceId) async {
     // TODO: Set up RTCPeerConnection with DataChannel for file streaming
-    Log.d('[WebRTC] Creating peer connection to $remoteDeviceId');
+    Log.d(
+      'Creating peer connection to $remoteDeviceId',
+      source: LogSource.network,
+      component: 'WebRtcService',
+    );
   }
 
   Future<void> dispose() async {

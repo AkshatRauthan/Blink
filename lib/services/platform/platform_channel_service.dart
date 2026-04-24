@@ -13,7 +13,13 @@ class PlatformChannelService {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on PlatformException catch (e, s) {
-      Log.e('[Platform] invokeMethod($method) failed', error: e, stackTrace: s);
+      Log.e(
+        'invokeMethod($method) failed',
+        source: LogSource.system,
+        component: 'PlatformChannelService',
+        error: e,
+        stackTrace: s,
+      );
       return null;
     }
   }

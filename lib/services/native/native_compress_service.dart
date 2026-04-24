@@ -35,9 +35,18 @@ class NativeCompressService {
     try {
       _lib = _loadLibrary();
       _ready = true;
-      Log.i('[NativeCompress] LZ4 native library loaded');
+      Log.i(
+        'LZ4 native library loaded',
+        source: LogSource.service,
+        component: 'NativeCompressService',
+      );
     } catch (e) {
-      Log.w('[NativeCompress] LZ4 library not available — compression disabled. Error: $e');
+      Log.w(
+        'LZ4 library not available - compression disabled',
+        source: LogSource.service,
+        component: 'NativeCompressService',
+        error: e,
+      );
     }
   }
 

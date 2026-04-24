@@ -28,7 +28,11 @@ class DiscoveryManager {
     required String deviceName,
     required int port,
   }) async {
-    Log.i('[Discovery] Starting discovery manager');
+    Log.i(
+      'Starting discovery manager',
+      source: LogSource.service,
+      component: 'DiscoveryManager',
+    );
     await Future.wait([
       _mdns.startAdvertising(
         deviceId: deviceId,
@@ -50,7 +54,11 @@ class DiscoveryManager {
       _mdns.stopDiscovery(),
       _ble.stopAll(),
     ]);
-    Log.i('[Discovery] Stopped');
+    Log.i(
+      'Stopped',
+      source: LogSource.service,
+      component: 'DiscoveryManager',
+    );
   }
 
   Future<void> dispose() async {

@@ -88,10 +88,18 @@ class NativeHashService {
         _Blake3HasherFinalizeNative,
         _Blake3HasherFinalize>('blake3_hasher_finalize');
       _ready = true;
-      Log.i('[NativeHash] BLAKE3 native library loaded');
+      Log.i(
+        'BLAKE3 native library loaded',
+        source: LogSource.service,
+        component: 'NativeHashService',
+      );
     } catch (e) {
-      Log.w('[NativeHash] BLAKE3 library not available — '
-          'falling back to Dart SHA-256. Error: $e');
+      Log.w(
+        'BLAKE3 library not available - falling back to Dart SHA-256',
+        source: LogSource.service,
+        component: 'NativeHashService',
+        error: e,
+      );
     }
   }
 
@@ -133,8 +141,13 @@ class NativeHashService {
       _blake3HasherFinalize!(hasherPtr, outPtr, _outputLengthBytes);
       return Uint8List.fromList(outPtr.asTypedList(_outputLengthBytes));
     } catch (e, s) {
-      Log.w('[NativeHash] Native BLAKE3 hash failed, using fallback: $e');
-      Log.d('[NativeHash] Stack: $s');
+      Log.w(
+        'Native BLAKE3 hash failed, using fallback',
+        source: LogSource.service,
+        component: 'NativeHashService',
+        error: e,
+        stackTrace: s,
+      );
       return _dartFallbackHash(data);
     } finally {
       calloc.free(outPtr);
@@ -173,8 +186,13 @@ class NativeHashService {
       _blake3HasherFinalize!(hasherPtr, outPtr, _outputLengthBytes);
       return Uint8List.fromList(outPtr.asTypedList(_outputLengthBytes));
     } catch (e, s) {
-      Log.w('[NativeHash] Native BLAKE3 stream hash failed, using fallback: $e');
-      Log.d('[NativeHash] Stack: $s');
+      Log.w(
+        'Native BLAKE3 stream hash failed, using fallback',
+        source: LogSource.service,
+        component: 'NativeHashService',
+        error: e,
+        stackTrace: s,
+      );
       return _dartFallbackHash(buffered.toBytes());
     } finally {
       calloc.free(outPtr);

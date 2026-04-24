@@ -25,7 +25,11 @@ class NetworkInfoService {
             name.contains('eth')) {
           for (final addr in interface.addresses) {
             if (!addr.isLoopback) {
-              Log.d('[Network] Local IP: ${addr.address} (${interface.name})');
+              Log.d(
+                'Local IP: ${addr.address} (${interface.name})',
+                source: LogSource.network,
+                component: 'NetworkInfoService',
+              );
               return addr.address;
             }
           }
@@ -39,7 +43,13 @@ class NetworkInfoService {
         }
       }
     } catch (e, s) {
-      Log.e('[Network] getLocalIp failed', error: e, stackTrace: s);
+      Log.e(
+        'getLocalIp failed',
+        source: LogSource.network,
+        component: 'NetworkInfoService',
+        error: e,
+        stackTrace: s,
+      );
     }
     return null;
   }

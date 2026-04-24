@@ -38,7 +38,11 @@ class MdnsService {
     );
     await _broadcast!.initialize();
     await _broadcast!.start();
-    Log.i('[mDNS] Advertising "$deviceName" on port $port');
+    Log.i(
+      'Advertising "$deviceName" on port $port',
+      source: LogSource.network,
+      component: 'MdnsService',
+    );
   }
 
   /// Start scanning for other Blink devices.
@@ -49,13 +53,21 @@ class MdnsService {
 
     _discovery!.eventStream?.listen((event) {
       if (event is BonsoirDiscoveryServiceFoundEvent) {
-        Log.d('[mDNS] Found: ${event.service.name}');
+        Log.d(
+          'Found: ${event.service.name}',
+          source: LogSource.network,
+          component: 'MdnsService',
+        );
         // TODO: Resolve service and emit parsed Device
       }
     });
 
     await _discovery!.start();
-    Log.i('[mDNS] Discovery started');
+    Log.i(
+      'Discovery started',
+      source: LogSource.network,
+      component: 'MdnsService',
+    );
   }
 
   Future<void> stopAdvertising() async {

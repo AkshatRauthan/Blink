@@ -78,7 +78,11 @@ class QrHandshakeService {
       expiresAt: expiry,
       hmacBase64: '', // TODO: HMAC-sign the payload fields
     );
-    Log.d('[QR] Token generated: $tokenId (expires: $expiry)');
+    Log.d(
+      'Token generated: $tokenId (expires: $expiry)',
+      source: LogSource.security,
+      component: 'QrHandshakeService',
+    );
     return payload;
   }
 
@@ -98,7 +102,11 @@ class QrHandshakeService {
     // TODO: Verify HMAC signature using sender's Ed25519 pubkey
 
     _usedTokenIds.add(payload.tokenId);
-    Log.i('[QR] Token validated: ${payload.tokenId}');
+    Log.i(
+      'Token validated: ${payload.tokenId}',
+      source: LogSource.security,
+      component: 'QrHandshakeService',
+    );
     return payload;
   }
 

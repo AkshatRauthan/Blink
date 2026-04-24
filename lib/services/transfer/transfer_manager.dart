@@ -80,7 +80,9 @@ class TransferManager {
     }
 
     Log.i(
-      '[TransferManager] Session $sessionId started (${files.length} files)',
+      'Session $sessionId started (${files.length} files)',
+      source: LogSource.process,
+      component: 'TransferManager',
     );
     return session;
   }
@@ -92,7 +94,11 @@ class TransferManager {
     required String remoteIp,
     required int remotePort,
   }) async {
-    Log.d('[TransferManager] Spawning isolate for ${files.length} files');
+    Log.d(
+      'Spawning isolate for ${files.length} files',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
 
     final receivePort = ReceivePort();
     final args = TransferIsolateArgs(
@@ -111,7 +117,9 @@ class TransferManager {
       if (message is TransferProgress) {
         if (message.error != null) {
           Log.e(
-            '[TransferManager] Error in session ${message.sessionId}: ${message.error}',
+            'Error in session ${message.sessionId}: ${message.error}',
+            source: LogSource.process,
+            component: 'TransferManager',
           );
           _active.remove(message.sessionId)?.kill();
           receivePort.close();
@@ -119,11 +127,17 @@ class TransferManager {
         }
 
         Log.d(
-          '[TransferManager] Progress ${message.sessionId}: ${message.bytesTransferred} / ${message.totalBytes} bytes',
+          'Progress ${message.sessionId}: ${message.bytesTransferred} / ${message.totalBytes} bytes',
+          source: LogSource.process,
+          component: 'TransferManager',
         );
 
         if (message.completed) {
-          Log.i('[TransferManager] Transfer complete for ${message.filePath}');
+          Log.i(
+            'Transfer complete for ${message.filePath}',
+            source: LogSource.process,
+            component: 'TransferManager',
+          );
           // Remove isolate cleanup logic happens after all files finish
           // Here we could keep count of completed files per session and then kill
         }

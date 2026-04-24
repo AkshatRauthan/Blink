@@ -49,7 +49,11 @@ class IsarService {
       onUpgrade: _onUpgrade,
     );
 
-    Log.i('[DB] SQLite opened at $dbPath');
+    Log.i(
+      'SQLite opened at $dbPath',
+      source: LogSource.storage,
+      component: 'SQLite',
+    );
     return database;
   }
 
@@ -121,11 +125,19 @@ class IsarService {
       )
     ''');
 
-    Log.i('[DB] Schema created v$version');
+    Log.i(
+      'Schema created v$version',
+      source: LogSource.storage,
+      component: 'SQLite',
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    Log.w('[DB] Schema upgrade $oldVersion → $newVersion');
+    Log.w(
+      'Schema upgrade $oldVersion -> $newVersion',
+      source: LogSource.storage,
+      component: 'SQLite',
+    );
   }
 
   Future<void> close() async {

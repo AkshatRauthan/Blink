@@ -55,8 +55,11 @@ class NativeCryptoService {
     // 2. Initialization remains identical
     _sodium = await SodiumSumoInit.init(); 
     _ready = true;
-    Log.i('[NativeCrypto] libsodium initialised — '
-        'XChaCha20-Poly1305-IETF AEAD ready');
+    Log.i(
+      'libsodium initialised - XChaCha20-Poly1305-IETF AEAD ready',
+      source: LogSource.security,
+      component: 'NativeCryptoService',
+    );
   }
 
   // ── XChaCha20-Poly1305-IETF AEAD ─────────────────────────────────────────

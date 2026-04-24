@@ -26,11 +26,19 @@ class BleService {
   /// Starts duty-cycled BLE scanning. No-op on unsupported platforms.
   Future<void> startScanning() async {
     if (!PlatformUtils.bleSupported) {
-      Log.w('[BLE] Scanning not supported on ${PlatformUtils.platformName}');
+      Log.w(
+        'Scanning not supported on ${PlatformUtils.platformName}',
+        source: LogSource.service,
+        component: 'BleService',
+      );
       return;
     }
     _scheduleScan();
-    Log.i('[BLE] Duty-cycled scanning started');
+    Log.i(
+      'Duty-cycled scanning started',
+      source: LogSource.service,
+      component: 'BleService',
+    );
   }
 
   void _scheduleScan() {
@@ -57,14 +65,22 @@ class BleService {
   Future<void> startAdvertising(String deviceId) async {
     if (!PlatformUtils.bleSupported) return;
     // TODO: Implement BLE peripheral advertising via flutter_blue_plus / method channel
-    Log.i('[BLE] Advertising started for $deviceId');
+    Log.i(
+      'Advertising started for $deviceId',
+      source: LogSource.service,
+      component: 'BleService',
+    );
   }
 
   Future<void> stopAll() async {
     _scanTimer?.cancel();
     _scanTimer = null;
     _isScanning = false;
-    Log.i('[BLE] Stopped');
+    Log.i(
+      'Stopped',
+      source: LogSource.service,
+      component: 'BleService',
+    );
   }
 
   Future<void> dispose() async {

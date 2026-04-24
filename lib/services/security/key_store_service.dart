@@ -28,7 +28,11 @@ class KeyStoreService {
       // If not found, generate and store a new one
       _cachedKeyPair = NativeCryptoService.instance.generateEd25519KeyPair();
       // TODO: Persist to flutter_secure_storage
-      Log.i('[KeyStore] Identity keypair ready');
+      Log.i(
+        'Identity keypair ready',
+        source: LogSource.security,
+        component: 'KeyStoreService',
+      );
     } catch (e) {
       throw KeyStoreException('Failed to initialise identity key', cause: e);
     }

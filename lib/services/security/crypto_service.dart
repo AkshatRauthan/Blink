@@ -13,7 +13,11 @@ class CryptoService {
 
   Future<void> init() async {
     await NativeCryptoService.instance.init();
-    Log.i('[Crypto] Initialised');
+    Log.i(
+      'Initialised',
+      source: LogSource.security,
+      component: 'CryptoService',
+    );
   }
 
   // ── Session Key ───────────────────────────────────────────────────────────

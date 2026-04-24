@@ -27,7 +27,11 @@ class PairingNotifier extends Notifier<AsyncValue<String?>> {
       final payload = QrHandshakeService.instance.validateAndConsume(qrString);
       // TODO: Derive session key from payload.x25519PublicKeyBase64
       // TODO: Open transfer session with paired device
-      Log.i('[Pairing] Paired with device: ${payload.senderPublicKeyBase64.substring(0, 8)}…');
+      Log.i(
+        'Paired with device: ${payload.senderPublicKeyBase64.substring(0, 8)}...',
+        source: LogSource.ui,
+        component: 'PairingNotifier',
+      );
       state = AsyncData(qrString);
     } catch (e, s) {
       state = AsyncError(e, s);
