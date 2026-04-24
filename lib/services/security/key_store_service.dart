@@ -44,4 +44,11 @@ class KeyStoreService {
 
   /// Returns the raw 32-byte public key.
   Uint8List get publicKeyBytes => base64Decode(publicKeyBase64);
+
+  /// Generates a fresh ephemeral X25519 keypair for session key derivation.
+  ///
+  /// This keypair is not persisted and should be treated as short-lived.
+  Map<String, String> generateEphemeralX25519KeyPair() {
+    return NativeCryptoService.instance.generateX25519KeyPair();
+  }
 }

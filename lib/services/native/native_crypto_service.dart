@@ -6,6 +6,36 @@ import 'package:sodium/sodium_sumo.dart';
 
 import '../../core/utils/logger.dart';
 
+class NativeEd25519KeyPair {
+  final Uint8List publicKey;
+  final Uint8List secretKey;
+
+  const NativeEd25519KeyPair({
+    required this.publicKey,
+    required this.secretKey,
+  });
+
+  Map<String, String> toBase64Map() => {
+        'publicKey': base64Encode(publicKey),
+        'secretKey': base64Encode(secretKey),
+      };
+}
+
+class NativeX25519KeyPair {
+  final Uint8List publicKey;
+  final Uint8List secretKey;
+
+  const NativeX25519KeyPair({
+    required this.publicKey,
+    required this.secretKey,
+  });
+
+  Map<String, String> toBase64Map() => {
+        'publicKey': base64Encode(publicKey),
+        'secretKey': base64Encode(secretKey),
+      };
+}
+
 /// Wraps libsodium (via [sodium]) to provide authenticated encryption.
 ///
 /// Uses **XChaCha20-Poly1305-IETF** — the recommended AEAD construction in
@@ -76,22 +106,32 @@ class NativeCryptoService {
   /// Generates an Ed25519 identity keypair.
   /// Returns {'publicKey': base64, 'secretKey': base64}.
   Map<String, String> generateEd25519KeyPair() {
+    return generateEd25519KeyPairRaw().toBase64Map();
+  }
+
+  /// Generates an Ed25519 identity keypair as raw bytes.
+  NativeEd25519KeyPair generateEd25519KeyPairRaw() {
     final kp = _sodium.crypto.sign.keyPair();
-    return {
-      'publicKey': base64Encode(kp.publicKey),
-      'secretKey': base64Encode(kp.secretKey.extractBytes()),
-    };
+    return NativeEd25519KeyPair(
+      publicKey: kp.publicKey,
+      secretKey: kp.secretKey.extractBytes(),
+    );
   }
 
   // ── X25519 Key Exchange ───────────────────────────────────────────────────
 
   /// Generates an X25519 keypair for ECDH session key derivation.
   Map<String, String> generateX25519KeyPair() {
+    return generateX25519KeyPairRaw().toBase64Map();
+  }
+
+  /// Generates an X25519 keypair for ECDH session key derivation as raw bytes.
+  NativeX25519KeyPair generateX25519KeyPairRaw() {
     final kp = _sodium.crypto.box.keyPair();
-    return {
-      'publicKey': base64Encode(kp.publicKey),
-      'secretKey': base64Encode(kp.secretKey.extractBytes()),
-    };
+    return NativeX25519KeyPair(
+      publicKey: kp.publicKey,
+      secretKey: kp.secretKey.extractBytes(),
+    );
   }
 
   /// Derives a 256-bit shared session key from our X25519 secret key and

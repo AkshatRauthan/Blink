@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/blink_exception.dart';
 import '../../core/utils/logger.dart';
+import '../native/native_crypto_service.dart';
 import 'key_store_service.dart';
 
 /// A QR payload exchanged during the pairing handshake.
@@ -60,18 +62,19 @@ class QrHandshakeService {
   static final instance = QrHandshakeService._();
 
   final _usedTokenIds = <String>{};
+  final _localEphemeralSecretsByToken = <String, Uint8List>{};
 
   /// Generates a new signed QR payload for display.
   QrPayload generateToken() {
     final tokenId = const Uuid().v4();
     final expiry = DateTime.now().add(AppConstants.qrTokenTtl);
+    final x25519 = NativeCryptoService.instance.generateX25519KeyPairRaw();
+    _localEphemeralSecretsByToken[tokenId] = x25519.secretKey;
 
-    // TODO: Generate ephemeral X25519 keypair from NativeCryptoService
-    // For now, stub with identity pubkey
     final payload = QrPayload(
       tokenId: tokenId,
       senderPublicKeyBase64: KeyStoreService.instance.publicKeyBase64,
-      x25519PublicKeyBase64: KeyStoreService.instance.publicKeyBase64,
+      x25519PublicKeyBase64: base64Encode(x25519.publicKey),
       expiresAt: expiry,
       hmacBase64: '', // TODO: HMAC-sign the payload fields
     );
@@ -97,5 +100,16 @@ class QrHandshakeService {
     _usedTokenIds.add(payload.tokenId);
     Log.i('[QR] Token validated: ${payload.tokenId}');
     return payload;
+  }
+
+  /// Returns and removes the local ephemeral X25519 secret key for a token.
+  ///
+  /// The secret is single-use and is cleared from memory after retrieval.
+  Uint8List consumeLocalEphemeralSecret(String tokenId) {
+    final key = _localEphemeralSecretsByToken.remove(tokenId);
+    if (key == null) {
+      throw const QrTokenInvalidException();
+    }
+    return key;
   }
 }

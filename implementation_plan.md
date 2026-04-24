@@ -5,11 +5,11 @@
 ## Phase 1: Core Framework & Native Engines
 
 ### 1.1 Crypto & Hardware Acceleration (libsodium)
-- [ ] Bind `libsodium` FFI for Ed25519/X25519 key exchanges.
-- [ ] Bind `libsodium` FFI for XChaCha20-Poly1305 stream encryption.
-- [ ] Bind `BLAKE3` for streaming verification.
+- ✅ Bind `libsodium` FFI for Ed25519/X25519 key exchanges.
+- ✅ Bind `libsodium` FFI for XChaCha20-Poly1305 stream encryption.
+- ✅ Bind `BLAKE3` for streaming verification.
 - **Review/Comments:**
-  > 
+  > Ed25519 + X25519 keypair generation is now wired through sodium_sumo via `NativeCryptoService`, and QR token generation now uses a real ephemeral X25519 public key instead of the identity key stub. XChaCha20-Poly1305 chunk encryption/decryption is active via `CryptoService.encryptChunk/decryptChunk` using libsodium AEAD. BLAKE3 hashing now has real FFI symbol binding with streamed hashing API and SHA-256 fallback when native library is unavailable.
 
 ### 1.2 Base HTTP Transfer Server & Client 
 - [ ] Implement embedded Shelf HTTP Server inside a Dart Isolate.

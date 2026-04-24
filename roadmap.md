@@ -2,6 +2,22 @@
 
 > High-level roadmap tracking our journey toward a universal AirDrop alternative.
 
+## Status Legend
+
+- `PENDING`: Not started
+- `IN PROGRESS`: Active implementation
+- `PARTIAL`: Scaffolded but not yet integrated end-to-end
+- `COMPLETE`: End-to-end implemented and validated
+
+## Current Reality Snapshot (April 24, 2026)
+
+- UI across core features is mostly implemented.
+- Data models and repository scaffolding are implemented.
+- Core transfer/discovery/security services are still partially integrated.
+- Settings is currently the most complete feature area.
+
+Detailed audit: [docs/Status_Audit_2026-04-24.md](docs/Status_Audit_2026-04-24.md)
+
 ## Milestones
 
 ### M1: The Engine Room 

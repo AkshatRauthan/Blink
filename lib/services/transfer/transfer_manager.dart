@@ -8,9 +8,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/logger.dart';
+import '../../core/utils/file_utils.dart';
 import '../../data/models/transfer_session.dart';
 import '../../data/models/transfer_file.dart';
 import '../../data/repositories/transfer_repository.dart';
+import '../native/native_hash_service.dart';
 import 'transfer_isolate.dart';
 
 /// Orchestrates multi-file transfer sessions.
@@ -34,17 +36,22 @@ class TransferManager {
     required Uint8List sessionKey,
   }) async {
     final sessionId = const Uuid().v4();
-    final transferFiles = files
-        .map(
-          (f) => TransferFile(
-            fileId: const Uuid().v4(),
-            sessionId: sessionId,
-            fileName: f.uri.pathSegments.last,
-            mimeType: '', // TODO: FileUtils.mimeType(f.path)
-            sizeBytes: f.lengthSync(),
-          ),
-        )
-        .toList();
+    await NativeHashService.instance.init();
+
+    final transferFiles = <TransferFile>[];
+    for (final f in files) {
+      final checksum = await NativeHashService.instance.hashFileHex(f);
+      transferFiles.add(
+        TransferFile(
+          fileId: const Uuid().v4(),
+          sessionId: sessionId,
+          fileName: f.uri.pathSegments.last,
+          mimeType: FileUtils.mimeType(f.path),
+          sizeBytes: f.lengthSync(),
+          blake3Checksum: checksum,
+        ),
+      );
+    }
 
     final session = TransferSession(
       sessionId: sessionId,
