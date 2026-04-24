@@ -17,10 +17,15 @@ class DiscoveryManager {
   final BleService _ble = BleService.instance;
 
   final _devicesController = StreamController<Device>.broadcast();
+  final _lostController = StreamController<String>.broadcast();
   StreamSubscription<Device>? _mdnsSub;
+  StreamSubscription<String>? _mdnsLostSub;
 
   /// Unified stream of nearby devices from all discovery sources.
   Stream<Device> get onDeviceFound => _devicesController.stream;
+
+  /// Stream of device IDs that have disappeared from the network.
+  Stream<String> get onDeviceLost => _lostController.stream;
 
   /// Starts both mDNS and BLE discovery.
   Future<void> startAll({
@@ -45,10 +50,14 @@ class DiscoveryManager {
     ]);
 
     _mdnsSub = _mdns.onDeviceDiscovered.listen(_devicesController.add);
-    // BLE beacons are supplementary; devices still need mDNS to resolve IP
+    _mdnsLostSub = _mdns.onDeviceLost.listen(_lostController.add);
   }
 
   Future<void> stopAll() async {
+    await _mdnsSub?.cancel();
+    _mdnsSub = null;
+    await _mdnsLostSub?.cancel();
+    _mdnsLostSub = null;
     await Future.wait([
       _mdns.stopAdvertising(),
       _mdns.stopDiscovery(),
@@ -62,8 +71,10 @@ class DiscoveryManager {
   }
 
   Future<void> dispose() async {
-    await _mdnsSub?.cancel();
     await stopAll();
     await _devicesController.close();
+    await _lostController.close();
+    await _mdns.dispose();
+    await _ble.dispose();
   }
 }

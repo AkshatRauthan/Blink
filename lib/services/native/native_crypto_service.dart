@@ -149,5 +149,31 @@ class NativeCryptoService {
     ).extractBytes();
   }
 
+  // ── Ed25519 Signatures ─────────────────────────────────────────────────
+
+  /// Creates a detached Ed25519 signature over [message] using [secretKey].
+  Uint8List signDetached({
+    required Uint8List message,
+    required Uint8List secretKey,
+  }) {
+    return _sodium.crypto.sign.detached(
+      message: message,
+      secretKey: SecureKey.fromList(_sodium, secretKey),
+    );
+  }
+
+  /// Verifies a detached Ed25519 signature.
+  bool verifyDetached({
+    required Uint8List message,
+    required Uint8List signature,
+    required Uint8List publicKey,
+  }) {
+    return _sodium.crypto.sign.verifyDetached(
+      message: message,
+      signature: signature,
+      publicKey: publicKey,
+    );
+  }
+
   SodiumSumo get sodium => _sodium;
 }

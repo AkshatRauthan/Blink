@@ -1,45 +1,126 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/logger.dart';
+import '../native/native_hash_service.dart';
 import '../security/crypto_service.dart';
+
+/// Metadata for a single file within a transfer session.
+class IncomingFileInfo {
+  final String fileId;
+  final String fileName;
+  final String mimeType;
+  final int sizeBytes;
+  final String? blake3Checksum;
+  int receivedBytes;
+  IOSink? sink;
+  String? localPath;
+
+  IncomingFileInfo({
+    required this.fileId,
+    required this.fileName,
+    required this.mimeType,
+    required this.sizeBytes,
+    this.blake3Checksum,
+    this.receivedBytes = 0,
+  });
+}
+
+/// Active incoming transfer session state held by the server.
+class IncomingSession {
+  final String sessionId;
+  final String senderDeviceId;
+  final Uint8List sessionKey;
+  final List<IncomingFileInfo> files;
+  final String outputDir;
+
+  IncomingSession({
+    required this.sessionId,
+    required this.senderDeviceId,
+    required this.sessionKey,
+    required this.files,
+    required this.outputDir,
+  });
+}
+
+/// Progress event emitted for each received chunk.
+class ChunkEvent {
+  final String sessionId;
+  final int fileIndex;
+  final String fileName;
+  final int receivedBytes;
+  final int totalBytes;
+  final bool fileComplete;
+  final bool sessionComplete;
+  final String? error;
+
+  const ChunkEvent({
+    required this.sessionId,
+    required this.fileIndex,
+    required this.fileName,
+    required this.receivedBytes,
+    required this.totalBytes,
+    this.fileComplete = false,
+    this.sessionComplete = false,
+    this.error,
+  });
+}
 
 /// Embedded HTTP server (powered by Shelf) that runs on the receiver side.
 ///
-/// Runs in a dedicated Dart Isolate (spawned by [TransferManager]) so all
-/// disk I/O and decryption is off the main thread.
-///
 /// Endpoints:
-///   POST /transfer/begin  — initiates a new transfer session
-///   PUT  /transfer/:id    — receives an encrypted chunk stream
-///   POST /transfer/:id/metadata — file list + checksums
+///   POST /transfer/begin            — initiates session with file manifest
+///   PUT  /transfer/:sid/:fileIndex   — receives encrypted chunk for a file
+///   GET  /transfer/:sid/status       — returns session progress
+///   DELETE /transfer/:sid            — cancels a session
 class HttpServerService {
   HttpServerService._();
   static final instance = HttpServerService._();
 
-  dynamic _server; // HttpServer
+  HttpServer? _server;
   bool _running = false;
 
+  /// Override for output base directory. When null, uses path_provider.
+  String? outputBaseDir;
+
+  final _sessions = <String, IncomingSession>{};
   final _chunkController = StreamController<ChunkEvent>.broadcast();
 
+  /// Stream of progress events for all active sessions.
+  Stream<ChunkEvent> get onChunk => _chunkController.stream;
+
+  bool get isRunning => _running;
+
   /// Starts the Shelf server on [AppConstants.transferPort].
-  Future<void> start(Uint8List sessionKey) async {
+  ///
+  /// [sessionKey] is the pre-shared key derived via X25519 ECDH.
+  /// In the future this will be per-session; for now a single key is used.
+  Future<void> start() async {
     if (_running) return;
 
     final router = Router()
-      ..post('/transfer/begin', (Request req) => _handleBegin(req, sessionKey))
-      ..put('/transfer/<id>', (Request req, String id) => _handleChunk(req, id, sessionKey))
-      ..post('/transfer/<id>/metadata', (Request req, String id) => _handleMetadata(req, id));
+      ..post('/transfer/begin', _handleBegin)
+      ..put('/transfer/<sid>/<fileIndex>',
+          (Request req, String sid, String fileIndex) =>
+              _handleChunk(req, sid, int.parse(fileIndex)))
+      ..get('/transfer/<sid>/status',
+          (Request req, String sid) => _handleStatus(req, sid))
+      ..delete('/transfer/<sid>',
+          (Request req, String sid) => _handleCancel(req, sid));
 
     final handler = Pipeline()
         .addMiddleware(
           logRequests(
-            logger: (msg, _) => Log.d(
+            logger: (msg, _) => Log.t(
               msg,
               source: LogSource.network,
               component: 'HttpServer',
@@ -61,32 +142,306 @@ class HttpServerService {
     );
   }
 
-  Future<Response> _handleBegin(Request req, Uint8List sessionKey) async {
-    // TODO: Parse session init payload, return 200 OK with receiver's X25519 pubkey
-    return Response.ok('{"status":"ready"}',
-        headers: {'Content-Type': 'application/json'});
+  /// Registers a session key for an expected incoming session.
+  void registerSessionKey(String sessionId, Uint8List sessionKey) {
+    final existing = _sessions[sessionId];
+    if (existing != null) return;
+    _sessions[sessionId] = IncomingSession(
+      sessionId: sessionId,
+      senderDeviceId: '',
+      sessionKey: sessionKey,
+      files: [],
+      outputDir: '',
+    );
   }
 
+  /// POST /transfer/begin
+  ///
+  /// Body: { "sessionId": "...", "senderDeviceId": "...", "sessionKey": "base64",
+  ///         "files": [{ "fileId": "...", "fileName": "...", "mimeType": "...",
+  ///                      "sizeBytes": N, "blake3Checksum": "hex" }] }
+  Future<Response> _handleBegin(Request req) async {
+    try {
+      final body = await req.readAsString();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+
+      final sessionId = json['sessionId'] as String;
+      final senderDeviceId = json['senderDeviceId'] as String? ?? '';
+      final sessionKeyB64 = json['sessionKey'] as String?;
+      final filesList = json['files'] as List<dynamic>;
+
+      // Resolve or create session key
+      Uint8List sessionKey;
+      if (_sessions.containsKey(sessionId)) {
+        sessionKey = _sessions[sessionId]!.sessionKey;
+      } else if (sessionKeyB64 != null) {
+        sessionKey = base64Decode(sessionKeyB64);
+      } else {
+        return Response(409,
+            body: '{"error":"No session key registered or provided"}',
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      final files = filesList.map((f) {
+        final fm = f as Map<String, dynamic>;
+        return IncomingFileInfo(
+          fileId: fm['fileId'] as String? ?? '',
+          fileName: fm['fileName'] as String,
+          mimeType: fm['mimeType'] as String? ?? '',
+          sizeBytes: fm['sizeBytes'] as int,
+          blake3Checksum: fm['blake3Checksum'] as String?,
+        );
+      }).toList();
+
+      // Create output directory
+      final String baseDir;
+      if (outputBaseDir != null) {
+        baseDir = outputBaseDir!;
+      } else {
+        final docsDir = await getApplicationDocumentsDirectory();
+        baseDir = docsDir.path;
+      }
+      final outputDir =
+          p.join(baseDir, 'Blink', 'Received', sessionId.substring(0, 8));
+      await Directory(outputDir).create(recursive: true);
+
+      // Open file sinks
+      for (final file in files) {
+        final filePath = p.join(outputDir, file.fileName);
+        file.localPath = filePath;
+        file.sink = File(filePath).openWrite();
+      }
+
+      _sessions[sessionId] = IncomingSession(
+        sessionId: sessionId,
+        senderDeviceId: senderDeviceId,
+        sessionKey: sessionKey,
+        files: files,
+        outputDir: outputDir,
+      );
+
+      Log.i(
+        'Session $sessionId begun: ${files.length} files from $senderDeviceId',
+        source: LogSource.network,
+        component: 'HttpServer',
+      );
+
+      return Response.ok(
+        jsonEncode({'status': 'ready', 'sessionId': sessionId}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      Log.e(
+        'handleBegin failed',
+        source: LogSource.network,
+        component: 'HttpServer',
+        error: e,
+        stackTrace: s,
+      );
+      return Response.internalServerError(
+        body: '{"error":"${e.toString()}"}',
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// PUT /transfer/:sid/:fileIndex
+  ///
+  /// Receives an encrypted chunk, decrypts it, writes to the correct file.
   Future<Response> _handleChunk(
-      Request req, String sessionId, Uint8List sessionKey) async {
-    final encryptedBytes = await req.read().expand((b) => b).toList();
-    final chunk = Uint8List.fromList(encryptedBytes);
-    final plain = CryptoService.instance.decryptChunk(chunk, sessionKey);
-    _chunkController.add(ChunkEvent(sessionId: sessionId, data: plain));
-    return Response.ok('{"status":"ok"}',
-        headers: {'Content-Type': 'application/json'});
+      Request req, String sessionId, int fileIndex) async {
+    final session = _sessions[sessionId];
+    if (session == null) {
+      return Response(404,
+          body: '{"error":"Unknown session"}',
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    if (fileIndex < 0 || fileIndex >= session.files.length) {
+      return Response(400,
+          body: '{"error":"Invalid fileIndex $fileIndex"}',
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    final fileInfo = session.files[fileIndex];
+
+    try {
+      // Read entire encrypted chunk (4MB + 40 bytes overhead = safe to buffer)
+      final encryptedBytes = await _collectBytes(req.read());
+      final plaintext =
+          CryptoService.instance.decryptChunk(encryptedBytes, session.sessionKey);
+
+      // Write to disk
+      fileInfo.sink!.add(plaintext);
+      fileInfo.receivedBytes += plaintext.length;
+
+      final fileComplete = fileInfo.receivedBytes >= fileInfo.sizeBytes;
+      if (fileComplete) {
+        await fileInfo.sink!.flush();
+        await fileInfo.sink!.close();
+        fileInfo.sink = null;
+
+        // Verify integrity if sender provided a checksum
+        if (fileInfo.blake3Checksum != null &&
+            fileInfo.blake3Checksum!.isNotEmpty &&
+            fileInfo.localPath != null) {
+          final receivedHash = await NativeHashService.instance
+              .hashFileHex(File(fileInfo.localPath!));
+          if (receivedHash != fileInfo.blake3Checksum) {
+            Log.e(
+              'Integrity check FAILED for ${fileInfo.fileName}: '
+              'expected ${fileInfo.blake3Checksum}, got $receivedHash',
+              source: LogSource.network,
+              component: 'HttpServer',
+            );
+            _chunkController.add(ChunkEvent(
+              sessionId: sessionId,
+              fileIndex: fileIndex,
+              fileName: fileInfo.fileName,
+              receivedBytes: fileInfo.receivedBytes,
+              totalBytes: fileInfo.sizeBytes,
+              error: 'Integrity check failed',
+            ));
+            return Response(422,
+                body: '{"error":"Integrity check failed"}',
+                headers: {'Content-Type': 'application/json'});
+          }
+          Log.i(
+            'Integrity verified for ${fileInfo.fileName}',
+            source: LogSource.network,
+            component: 'HttpServer',
+          );
+        }
+
+        Log.i(
+          'File ${fileInfo.fileName} complete (${fileInfo.receivedBytes} bytes)',
+          source: LogSource.network,
+          component: 'HttpServer',
+        );
+      }
+
+      final sessionComplete =
+          session.files.every((f) => f.receivedBytes >= f.sizeBytes);
+
+      _chunkController.add(ChunkEvent(
+        sessionId: sessionId,
+        fileIndex: fileIndex,
+        fileName: fileInfo.fileName,
+        receivedBytes: fileInfo.receivedBytes,
+        totalBytes: fileInfo.sizeBytes,
+        fileComplete: fileComplete,
+        sessionComplete: sessionComplete,
+      ));
+
+      if (sessionComplete) {
+        Log.i(
+          'Session $sessionId complete — all files received',
+          source: LogSource.network,
+          component: 'HttpServer',
+        );
+        _sessions.remove(sessionId);
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'status': fileComplete ? 'file_complete' : 'ok',
+          'receivedBytes': fileInfo.receivedBytes,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      Log.e(
+        'handleChunk failed for ${fileInfo.fileName}',
+        source: LogSource.network,
+        component: 'HttpServer',
+        error: e,
+        stackTrace: s,
+      );
+
+      _chunkController.add(ChunkEvent(
+        sessionId: sessionId,
+        fileIndex: fileIndex,
+        fileName: fileInfo.fileName,
+        receivedBytes: fileInfo.receivedBytes,
+        totalBytes: fileInfo.sizeBytes,
+        error: e.toString(),
+      ));
+
+      return Response.internalServerError(
+        body: '{"error":"Chunk processing failed: $e"}',
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
-  Future<Response> _handleMetadata(Request req, String sessionId) async {
-    // TODO: Parse and store file metadata for progress tracking
-    return Response.ok('{"status":"ok"}',
-        headers: {'Content-Type': 'application/json'});
+  /// GET /transfer/:sid/status
+  Future<Response> _handleStatus(Request req, String sessionId) async {
+    final session = _sessions[sessionId];
+    if (session == null) {
+      return Response(404,
+          body: '{"error":"Unknown session"}',
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    final filesStatus = session.files.map((f) => {
+          'fileName': f.fileName,
+          'receivedBytes': f.receivedBytes,
+          'totalBytes': f.sizeBytes,
+          'complete': f.receivedBytes >= f.sizeBytes,
+        }).toList();
+
+    return Response.ok(
+      jsonEncode({'sessionId': sessionId, 'files': filesStatus}),
+      headers: {'Content-Type': 'application/json'},
+    );
   }
 
-  Stream<ChunkEvent> get onChunk => _chunkController.stream;
+  /// DELETE /transfer/:sid
+  Future<Response> _handleCancel(Request req, String sessionId) async {
+    final session = _sessions[sessionId];
+    if (session == null) {
+      return Response(404,
+          body: '{"error":"Unknown session"}',
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    for (final f in session.files) {
+      await f.sink?.close();
+    }
+    _sessions.remove(sessionId);
+
+    Log.i(
+      'Session $sessionId cancelled',
+      source: LogSource.network,
+      component: 'HttpServer',
+    );
+
+    return Response.ok(
+      '{"status":"cancelled"}',
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
+
+  /// Collects all bytes from a stream into a single Uint8List.
+  Future<Uint8List> _collectBytes(Stream<List<int>> stream) async {
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in stream) {
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
 
   Future<void> stop() async {
-    await (_server as dynamic)?.close(force: true);
+    // Close all open file sinks
+    for (final session in _sessions.values) {
+      for (final f in session.files) {
+        await f.sink?.close();
+      }
+    }
+    _sessions.clear();
+
+    await _server?.close(force: true);
+    _server = null;
     _running = false;
     Log.i(
       'Stopped',
@@ -94,10 +449,4 @@ class HttpServerService {
       component: 'HttpServer',
     );
   }
-}
-
-class ChunkEvent {
-  final String sessionId;
-  final Uint8List data;
-  const ChunkEvent({required this.sessionId, required this.data});
 }

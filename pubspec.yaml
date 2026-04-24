@@ -40,7 +40,10 @@ dependencies:
   # ── Native Crypto via Dart FFI (libsodium pre-built) ─────────────────────────
   # Provides: XChaCha20-Poly1305, Ed25519, X25519 (via sodium)
   # Hardware-accelerated NEON (ARM) / SIMD (x86) — ~8-15x faster than pure Dart
-  sodium:
+  sodium: ^4.0.2+1
+
+  # ── Secure Storage ──────────────────────────────────────────────────────────
+  flutter_secure_storage: ^9.2.4  # Ed25519 identity key persistence
 
   # ── UI · Animation & Motion ──────────────────────────────────────────────────
   flutter_animate: ^4.5.2      # Declarative animation chains: .fade, .slide, .blur, .shimmer
@@ -62,7 +65,6 @@ dependencies:
   uuid: ^4.5.1
   watcher: ^1.1.1             # Live folder directory watching
   collection: ^1.19.1
-  logger: ^2.5.0
   crypto: ^3.0.6
   ffi: ^2.1.4
   permission_handler: ^12.0.1

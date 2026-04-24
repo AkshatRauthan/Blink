@@ -1,6 +1,5 @@
-// ignore_for_file: unused_field
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -12,22 +11,40 @@ import '../../core/utils/file_utils.dart';
 import '../../data/models/transfer_session.dart';
 import '../../data/models/transfer_file.dart';
 import '../../data/repositories/transfer_repository.dart';
-import '../native/native_hash_service.dart';
+import 'http_server_service.dart';
 import 'transfer_isolate.dart';
 
 /// Orchestrates multi-file transfer sessions.
 ///
-/// Spawns one Dart Isolate per active file to keep disk I/O and encryption
-/// off the main thread. Caps parallelism at [AppConstants.maxConcurrentTransfers].
+/// Sender side: spawns Dart Isolates for file streaming.
+/// Receiver side: starts [HttpServerService] and listens for incoming chunks.
+///
+/// Exposes [onProgress] for UI consumption via TransferNotifier.
 class TransferManager {
   TransferManager._();
   static final instance = TransferManager._();
 
   final _repo = TransferRepository.instance;
-  final _active = <String, Isolate>{};
+  final _isolates = <String, Isolate>{};
+  final _receivePorts = <String, ReceivePort>{};
+
+  final _progressController = StreamController<TransferSession>.broadcast();
+  final _sessions = <String, TransferSession>{};
+  final _sessionFiles = <String, List<TransferFile>>{};
+
+  /// Stream of session updates (state changes, progress).
+  Stream<TransferSession> get onProgress => _progressController.stream;
+
+  /// Returns a snapshot of all tracked sessions.
+  List<TransferSession> get activeSessions => _sessions.values.toList();
+
+  /// Returns files for a given session.
+  List<TransferFile> filesForSession(String sessionId) =>
+      _sessionFiles[sessionId] ?? [];
+
+  // ── Sender ────────────────────────────────────────────────────────────────
 
   /// Starts sending [files] to [remoteIp]:[remotePort].
-  /// Returns the created [TransferSession].
   Future<TransferSession> sendFiles({
     required List<File> files,
     required String remoteDeviceId,
@@ -36,11 +53,9 @@ class TransferManager {
     required Uint8List sessionKey,
   }) async {
     final sessionId = const Uuid().v4();
-    await NativeHashService.instance.init();
 
     final transferFiles = <TransferFile>[];
     for (final f in files) {
-      final checksum = await NativeHashService.instance.hashFileHex(f);
       transferFiles.add(
         TransferFile(
           fileId: const Uuid().v4(),
@@ -48,62 +63,63 @@ class TransferManager {
           fileName: f.uri.pathSegments.last,
           mimeType: FileUtils.mimeType(f.path),
           sizeBytes: f.lengthSync(),
-          blake3Checksum: checksum,
         ),
       );
     }
+
+    final totalBytes = transferFiles.fold<int>(0, (sum, f) => sum + f.sizeBytes);
 
     final session = TransferSession(
       sessionId: sessionId,
       remoteDeviceId: remoteDeviceId,
       direction: TransferDirection.send,
       status: TransferStatus.connecting,
-      totalBytes: transferFiles.fold(0, (sum, f) => sum + f.sizeBytes),
+      totalBytes: totalBytes,
       startedAt: DateTime.now(),
     );
+
+    _sessions[sessionId] = session;
+    _sessionFiles[sessionId] = transferFiles;
 
     await _repo.saveSession(session);
     for (final tf in transferFiles) {
       await _repo.saveFile(tf);
     }
 
-    // Spawn up to maxConcurrentTransfers isolates
-    final chunks = _partition(files, AppConstants.maxConcurrentTransfers);
-    for (final chunk in chunks) {
-      await _spawnTransferIsolate(
-        sessionId: sessionId,
-        files: chunk,
-        sessionKey: sessionKey,
-        remoteIp: remoteIp,
-        remotePort: remotePort,
-      );
-    }
+    _progressController.add(session);
+
+    // Spawn transfer isolate
+    await _spawnSenderIsolate(
+      sessionId: sessionId,
+      files: files,
+      fileIds: transferFiles.map((f) => f.fileId).toList(),
+      sessionKey: sessionKey,
+      remoteIp: remoteIp,
+      remotePort: remotePort,
+    );
 
     Log.i(
-      'Session $sessionId started (${files.length} files)',
+      'Send session $sessionId started (${files.length} files, ${_formatBytes(totalBytes)})',
       source: LogSource.process,
       component: 'TransferManager',
     );
+
     return session;
   }
 
-  Future<void> _spawnTransferIsolate({
+  Future<void> _spawnSenderIsolate({
     required String sessionId,
     required List<File> files,
+    required List<String> fileIds,
     required Uint8List sessionKey,
     required String remoteIp,
     required int remotePort,
   }) async {
-    Log.d(
-      'Spawning isolate for ${files.length} files',
-      source: LogSource.process,
-      component: 'TransferManager',
-    );
-
     final receivePort = ReceivePort();
     final args = TransferIsolateArgs(
       sessionId: sessionId,
       filePaths: files.map((f) => f.path).toList(),
+      fileIds: fileIds,
       sessionKey: sessionKey,
       remoteIp: remoteIp,
       remotePort: remotePort,
@@ -111,46 +127,177 @@ class TransferManager {
     );
 
     final isolate = await Isolate.spawn(transferIsolateMain, args);
-    _active[sessionId] = isolate;
+    _isolates[sessionId] = isolate;
+    _receivePorts[sessionId] = receivePort;
 
     receivePort.listen((message) {
       if (message is TransferProgress) {
-        if (message.error != null) {
-          Log.e(
-            'Error in session ${message.sessionId}: ${message.error}',
-            source: LogSource.process,
-            component: 'TransferManager',
-          );
-          _active.remove(message.sessionId)?.kill();
-          receivePort.close();
-          return;
-        }
-
-        Log.d(
-          'Progress ${message.sessionId}: ${message.bytesTransferred} / ${message.totalBytes} bytes',
-          source: LogSource.process,
-          component: 'TransferManager',
-        );
-
-        if (message.completed) {
-          Log.i(
-            'Transfer complete for ${message.filePath}',
-            source: LogSource.process,
-            component: 'TransferManager',
-          );
-          // Remove isolate cleanup logic happens after all files finish
-          // Here we could keep count of completed files per session and then kill
-        }
+        _handleSenderProgress(message);
       }
     });
   }
 
-  /// Partitions [list] into sublists of maximum [size].
-  List<List<T>> _partition<T>(List<T> list, int size) {
-    final result = <List<T>>[];
-    for (var i = 0; i < list.length; i += size) {
-      result.add(list.sublist(i, (i + size).clamp(0, list.length)));
+  void _handleSenderProgress(TransferProgress progress) {
+    final session = _sessions[progress.sessionId];
+    if (session == null) return;
+
+    // Update file-level progress
+    final files = _sessionFiles[progress.sessionId];
+    if (files != null && progress.fileIndex < files.length) {
+      files[progress.fileIndex] = files[progress.fileIndex].copyWith(
+        transferredBytes: progress.bytesTransferred,
+        completed: progress.fileComplete,
+      );
     }
-    return result;
+
+    // Handle errors
+    if (progress.error != null) {
+      final failed = session.copyWith(
+        status: TransferStatus.failed,
+        failureReason: progress.error,
+      );
+      _sessions[progress.sessionId] = failed;
+      _progressController.add(failed);
+      _cleanupIsolate(progress.sessionId);
+
+      Log.e(
+        'Session ${progress.sessionId} failed: ${progress.error}',
+        source: LogSource.process,
+        component: 'TransferManager',
+      );
+      return;
+    }
+
+    // Calculate aggregate progress
+    final totalTransferred = files?.fold<int>(
+            0, (sum, f) => sum + f.transferredBytes) ??
+        0;
+
+    TransferStatus newStatus;
+    if (progress.sessionComplete) {
+      newStatus = TransferStatus.completed;
+    } else if (progress.fileComplete || totalTransferred > 0) {
+      newStatus = TransferStatus.transferring;
+    } else {
+      newStatus = session.status;
+    }
+
+    final updated = session.copyWith(
+      status: newStatus,
+      transferredBytes: totalTransferred,
+      completedAt:
+          progress.sessionComplete ? DateTime.now() : null,
+    );
+
+    _sessions[progress.sessionId] = updated;
+    _progressController.add(updated);
+
+    if (progress.sessionComplete) {
+      _cleanupIsolate(progress.sessionId);
+      Log.i(
+        'Session ${progress.sessionId} completed',
+        source: LogSource.process,
+        component: 'TransferManager',
+      );
+    }
+
+    // Persist progress periodically
+    _repo.saveSession(updated);
+  }
+
+  // ── Receiver ──────────────────────────────────────────────────────────────
+
+  /// Starts the receiver HTTP server and listens for incoming transfers.
+  Future<void> startReceiver() async {
+    final server = HttpServerService.instance;
+    if (server.isRunning) return;
+    await server.start();
+
+    server.onChunk.listen(_handleReceiverChunk);
+
+    Log.i(
+      'Receiver started on port ${AppConstants.transferPort}',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
+  }
+
+  void _handleReceiverChunk(ChunkEvent event) {
+    var session = _sessions[event.sessionId];
+
+    // Auto-create session tracking on first chunk if we don't have it
+    if (session == null) {
+      session = TransferSession(
+        sessionId: event.sessionId,
+        remoteDeviceId: '',
+        direction: TransferDirection.receive,
+        status: TransferStatus.transferring,
+        totalBytes: event.totalBytes,
+        startedAt: DateTime.now(),
+      );
+      _sessions[event.sessionId] = session;
+    }
+
+    final updated = session.copyWith(
+      status: event.sessionComplete
+          ? TransferStatus.completed
+          : TransferStatus.transferring,
+      transferredBytes: event.receivedBytes,
+      completedAt: event.sessionComplete ? DateTime.now() : null,
+    );
+
+    _sessions[event.sessionId] = updated;
+    _progressController.add(updated);
+  }
+
+  /// Stops the receiver HTTP server.
+  Future<void> stopReceiver() async {
+    await HttpServerService.instance.stop();
+  }
+
+  // ── Session Control ───────────────────────────────────────────────────────
+
+  /// Cancels a transfer session.
+  Future<void> cancelTransfer(String sessionId) async {
+    final session = _sessions[sessionId];
+    if (session == null) return;
+
+    _cleanupIsolate(sessionId);
+
+    final cancelled = session.copyWith(status: TransferStatus.cancelled);
+    _sessions[sessionId] = cancelled;
+    _progressController.add(cancelled);
+    await _repo.saveSession(cancelled);
+
+    Log.i(
+      'Session $sessionId cancelled',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
+  }
+
+  void _cleanupIsolate(String sessionId) {
+    _isolates[sessionId]?.kill(priority: Isolate.beforeNextEvent);
+    _isolates.remove(sessionId);
+    _receivePorts[sessionId]?.close();
+    _receivePorts.remove(sessionId);
+  }
+
+  /// Cleans up all resources.
+  Future<void> dispose() async {
+    for (final id in _isolates.keys.toList()) {
+      _cleanupIsolate(id);
+    }
+    await _progressController.close();
+    await stopReceiver();
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
