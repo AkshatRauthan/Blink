@@ -24,16 +24,16 @@
 | `accent` | `#00D9FF` | Cyan - highlights, progress, indicators |
 | `accent-muted` | `#00D9FF33` | 20% opacity for glows |
 
-### Semantic Colors
+### Semantic Colors (as implemented in `BlinkColors`)
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `success` | `#4ADE80` | Green - completed, online, verified |
-| `success-muted` | `#4ADE8033` | Success backgrounds |
-| `warning` | `#FBBF24` | Amber - pending, caution |
-| `warning-muted` | `#FBBF2433` | Warning backgrounds |
-| `error` | `#F87171` | Red - errors, offline, failed |
-| `error-muted` | `#F8717133` | Error backgrounds |
-| `info` | `#60A5FA` | Blue - informational |
+| `success` | `#2ED47A` | Green - completed, online, verified, BLAKE3 badge |
+| `success-muted` | `#2ED47A` @ 12% | Success backgrounds (icon tint boxes) |
+| `warning` | `#FFBB33` | Amber - pending, caution |
+| `warning-muted` | `#FFBB33` @ 12% | Warning backgrounds |
+| `error` | `#FF6B6B` | Red - errors, offline, failed, decline |
+| `error-muted` | `#FF6B6B` @ 12% | Error backgrounds |
+| `info` | `#5B8DEF` | Blue - informational, BLE icon |
 
 ### Text Colors
 | Token | Hex | Usage |
@@ -160,18 +160,21 @@
 
 ### 6.4 Navigation
 
-#### Bottom Nav (Mobile)
-- Height: 80px (including safe area)
-- Background: `#0D0D12` with blur
-- Active icon: `#6C63FF`
-- Inactive icon: `#666680`
-- Label: 10px, show only for active
+#### Bottom Nav (Mobile) — as implemented in `BlinkBottomNav`
+- Height: 64px
+- Background: `#0D0D12` @ 88% alpha with `BackdropFilter` blur (sigma 24) — frosted glass effect
+- Top border: white @ 6% alpha
+- Active icon: white @ 90% alpha with 4px purple dot indicator below (primary glow shadow)
+- Inactive icon: white @ 40% alpha
+- Labels: 10px, always visible (both active and inactive)
+- No splash/ripple — `GestureDetector` for iOS feel
 
-#### Sidebar Rail (Desktop)
-- Width: 72px collapsed, 240px expanded
-- Background: `#0D0D12`
-- Active item: `#6C63FF` background pill
-- Inactive: `#A0A0B0`
+#### Sidebar Rail (Desktop) — as implemented in `BlinkSidebar`
+- Width: 72px (icon rail, not expandable in current implementation)
+- Background: `#1A1A2E` (dark surface) with right border (white @ 4% alpha)
+- Active item: primary @ 15% alpha background, subtle primary border (0.2 alpha)
+- Inactive: white @ 40% alpha
+- Hover: white @ 4% alpha background
 
 ### 6.5 Avatars
 
@@ -205,14 +208,16 @@
 - Padding: 16px
 - File icon: 40px
 
-### 6.8 Device Bubbles (Radar)
+### 6.8 Device Bubbles (Radar) — as implemented in `DeviceBubble`
 
-- Size: 56px
-- Background: `#1A1A2E`
-- Border: 2px solid `#35354A`
-- Selected border: 2px solid `#6C63FF`
-- Shadow: `elevation-1`
-- Glow on selection: `glow-accent`
+- Size: 56px diameter circular container
+- Background: `#1A1A2E` @ 70% alpha (semi-transparent for glassmorphism)
+- `BackdropFilter` with sigma 12 for frosted glass effect
+- Border: 1px solid white @ 8% alpha
+- Platform icon badge: 20px primary-tinted circle at bottom-right
+- Press animation: `AnimatedScale` 0.92 on tap
+- Device name label below (white @ 70% alpha, 11px)
+- No splash — `GestureDetector` for iOS feel
 
 ---
 
@@ -313,6 +318,35 @@
 - Client-side decorations
 - Match system GTK dark theme where possible
 - Respect desktop environment conventions
+
+---
+
+## 12. Implementation Notes (April 2026)
+
+Key patterns established during the Phase 4 UI redesign:
+
+### Interaction Model
+- **No InkWell/splash anywhere** — all tappable elements use `GestureDetector` + `AnimatedScale` for iOS feel
+- Press scale values: 0.92 (device bubbles), 0.96 (CTA buttons), 0.97 (folder buttons), 0.98 (profile card, settings items)
+
+### Glassmorphism
+- `BackdropFilter` with `ImageFilter.blur` used on: bottom nav bar (sigma 24), device bubbles (sigma 12), discovery header (sigma 20), torch toggle (sigma 10)
+- Semi-transparent backgrounds required for blur to be visible (typically 70–88% alpha)
+
+### Gradient Patterns
+- Primary gradient: `#6C63FF → #8B7BFF` (buttons, sent chat bubbles, profile avatar, active toggles)
+- Accent gradient: `#00D9FF → #00B4D8` (accept buttons, receive progress)
+- Background gradient orbs: radial gradients of primary/accent at low opacity for atmospheric depth
+
+### Entrance Animations
+- All screens use `flutter_animate` declarative chains: `.animate().fadeIn(duration: 400-500.ms).slideY(begin: 0.03, end: 0)`
+- Staggered delays: sections animate with 100ms incremental delays
+- Radar sweep: 4s `AnimationController` with linear repeat
+
+### Layout Breakpoint
+- Single breakpoint: **800px** (not the 600px/1024px from spec)
+- <800px: mobile with bottom nav
+- ≥800px: desktop with sidebar rail + optional side panels (e.g., device list panel on discovery)
 
 ---
 

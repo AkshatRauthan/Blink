@@ -51,11 +51,14 @@
 First-launch screen where users set a display name and optional avatar. Designed with an iOS-inspired aesthetic featuring a pulsing logo glow, animated gradient background, and a staggered entrance animation sequence.
 
 ### Key UI Elements
-- **Pulsing logo glow** — `AnimationController` driving a pulsing purple/accent glow behind the Blink icon
-- **Avatar picker** — Circular avatar with camera overlay icon; taps trigger the `setAvatar()` notifier action
-- **Name input** — Full-width `TextField` with underline styling and the Inter font
-- **CTA button** — Full-width gradient pill button (`primary → accent`) that calls `save()` and navigates to discovery
-- **Entrance animations** — `flutter_animate` fadeIn + slideY staggered per section using `BlinkDurations.standard`
+- **Ambient gradient orbs** — Two large radial gradients (primary + accent) positioned behind content for atmospheric depth
+- **Pulsing logo glow** — `AnimationController` driving a pulsing purple/accent glow behind the Blink SVG logo (`blink_logo.svg`)
+- **Glassmorphic avatar picker** — Circular avatar with `BackdropFilter` blur, camera overlay icon with primary-tinted background; taps trigger `setAvatar()` notifier action
+- **Name input** — Full-width `TextField` on dark surface (`#1A1A2E`) with rounded container styling and subtle border
+- **CTA button** — Full-width gradient pill button (`primary → #8B7BFF`) with `AnimatedScale` press animation (0.96) and glow shadow
+- **Security badges** — Row of badges showing "E2E Encrypted", "No Account Needed", "100% Offline" with subtle icon + text
+- **Entrance animations** — `flutter_animate` fadeIn + slideY staggered per section
+- **Desktop responsive** — At ≥800px, content centers with max width constraint
 
 ### Navigation
 - **On "Get Started" tap** → `context.go(AppRoutes.discovery)`
@@ -76,23 +79,28 @@ First-launch screen where users set a display name and optional avatar. Designed
 Dark atmospheric radar screen that discovers nearby devices. Forces dark theme via `Theme(data: theme.copyWith(brightness: Brightness.dark))`. A constantly rotating radar sweep is painted behind positioned device bubbles.
 
 ### Key UI Elements
-- **Radar rings** — `RadarPainter` (CustomPainter): 4 concentric rings with decreasing cyan opacity, a gradient sweep cone, and a centre glow
-- **Device bubbles** — `DeviceBubble` widgets positioned in a circle around centre using angle math (auto-distributed by index)
-- **Centre avatar** — Circular gradient avatar with the user's initial, surrounded by a pulsing purple glow
-- **Select Files FAB** — Gradient floating action button (`primary → accent`) with shadow, positioned bottom-centre
-- **AppBar actions** — QR scan icon (→ `AppRoutes.qrScan`) and settings gear (→ `AppRoutes.settings`)
+- **Frosted glass header** — `_FrostedHeader` with `BackdropFilter` blur, Blink logo (small SVG), QR scan + settings icon buttons
+- **Radar rings** — `RadarPainter` (CustomPainter): 5 concentric rings with ambient radial glow, 24 particle dots that brighten near sweep, gradient sweep cone with trail, sweep line with tip glow, pulsing centre glow
+- **Device bubbles** — `DeviceBubble` widgets positioned in a circle using angle math, glassmorphic with `BackdropFilter` (sigma 12)
+- **Centre avatar** — `_CentreAvatar`: circular gradient avatar with user's initial, animated pulsing purple glow (`AnimationController`)
+- **Bottom controls** — `_BottomControls`: `_StatusPill` showing "Scanning nearby..." with animated dot + `_SelectFilesButton` gradient pill with press animation
+- **Desktop layout** — Row with radar (flex: 3) + `_DeviceListPanel` (320px sidebar) with `_DeviceListTile` items and hover states (`MouseRegion`)
 
 ### Sub-widgets
 | Widget | File | Purpose |
 |---|---|---|
-| `DeviceBubble` | `lib/features/discovery/widgets/device_bubble.dart` | Displays a discovered device with platform icon, cyan glow, name label |
-| `RadarPainter` | `lib/features/discovery/widgets/radar_painter.dart` | Paints radar rings, sweep cone, gradient sweep line, centre dot |
+| `DeviceBubble` | `lib/features/discovery/widgets/device_bubble.dart` | Glassmorphic discovered device with `BackdropFilter`, platform icon badge, press scale (0.92) |
+| `RadarPainter` | `lib/features/discovery/widgets/radar_painter.dart` | 5-ring radar with ambient glow, 24 particle dots, sweep cone, pulsing centre. Accepts `pulseValue` + `deviceCount` |
+| `_FrostedHeader` | inline in `discovery_screen.dart` | BackdropFilter frosted glass header with logo + action icons |
+| `_CentreAvatar` | inline in `discovery_screen.dart` | Pulsing gradient avatar in radar centre |
+| `_BottomControls` | inline in `discovery_screen.dart` | Status pill + select files button |
+| `_DeviceListPanel` | inline in `discovery_screen.dart` | Desktop-only side panel (320px) listing devices with hover states |
 
 ### Navigation
 - **QR icon** → `AppRoutes.qrScan`
 - **Settings gear** → `AppRoutes.settings`
 - **Device bubble tap** → `AppRoutes.send` (for sending files to that device)
-- **FAB** → File picker flow → `AppRoutes.send`
+- **Select Files button** → File picker flow → `AppRoutes.send`
 
 ---
 
@@ -110,11 +118,12 @@ Dark atmospheric radar screen that discovers nearby devices. Forces dark theme v
 Displays the local device's pairing QR code for the remote device to scan. The QR code has a purple colour scheme with circular dot styling and a countdown timer showing the TTL.
 
 ### Key UI Elements
-- **QR code** — `QrImageView` with `QrEyeShape.circle`, `QrDataModuleShape.circle`, `BlinkColors.primary` colour, on white background, 240×240 px
-- **Countdown timer** — `AnimationController`-driven circular progress indicator showing minutes:seconds remaining (5-minute TTL from `AppConstants.qrCodeTtl`), with auto-regeneration on expiry via `regenerate()`
-- **Regenerate button** — Outlined pill button below the timer
-- **Encryption label** — Lock icon + "End-to-end encrypted" text in accent colour
-- **Segmented toggle** — "Show QR / Scan QR" pill toggle at the bottom; tapping "Scan QR" navigates via `pushReplacement` to `AppRoutes.qrScan`
+- **QR code** — `QrImageView` on dark surface card (`#1A1A2E`) with primary glow shadow, white QR with circular dark modules, 220×220 px
+- **Countdown timer** — Circular progress indicator ring (accent → error color under 60s) with minutes:seconds in center, auto-regeneration on expiry
+- **Regenerate button** — Subtle dark surface button with refresh icon, below the QR card
+- **Encryption label** — Shield icon + "End-to-end encrypted" text with accent color
+- **Gradient toggle pills** — `_PairingToggle`: "Show QR / Scan QR" gradient pills at bottom; active pill has primary gradient background, inactive has dark surface
+- **Entrance animation** — `flutter_animate` fadeIn + slideY staggered
 
 ### Navigation
 - **"Scan QR" toggle** → `context.pushReplacement(AppRoutes.qrScan)`
@@ -136,12 +145,12 @@ Displays the local device's pairing QR code for the remote device to scan. The Q
 Camera-based QR scanner for pairing with a remote device. Uses `MobileScanner` with a custom viewfinder overlay featuring cyan corner brackets and an animated scanning line.
 
 ### Key UI Elements
-- **Camera feed** — `MobileScanner` widget filling the screen, with dark overlay (55% opacity black)
-- **Viewfinder** — `_ViewfinderPainter` (CustomPainter): 4 rounded corner brackets drawn with `BlinkColors.accent`, 260×260 px
-- **Scanning line** — `_ScanningLine`: animated horizontal gradient line (accent colour) that sweeps vertically inside the viewfinder using `AnimationController` with repeat + reverse
-- **Torch toggle** — Circular 48 px button toggling flashlight on/off
+- **Camera feed** — `MobileScanner` widget filling the screen, with 50% dark overlay
+- **Viewfinder** — `_ViewfinderPainter` (CustomPainter): 4 accent-colored corner brackets with quadratic bezier rounded corners, 2.5px stroke width, 260×260 px
+- **Scanning line** — `_ScanningLine`: animated horizontal gradient line (accent → transparent) that sweeps vertically inside viewfinder using `AnimationController` with 2s repeat + reverse
+- **Frosted torch toggle** — Circular `BackdropFilter` blurred button (sigma 10) toggling flashlight on/off
 - **Encryption label** — Shield icon + "Offline encrypted exchange" text
-- **Segmented toggle** — "Show QR / Scan QR" pill toggle; tapping "Show QR" → `pushReplacement` to `AppRoutes.qrShow`
+- **Gradient toggle pills** — `_PairingToggle`: "Show QR / Scan QR" gradient pills matching QR Show screen style
 
 ### Behaviour
 - On barcode detect → `handleScannedQr(code)` → `context.pop()`
@@ -167,11 +176,12 @@ Camera-based QR scanner for pairing with a remote device. Uses `MobileScanner` w
 Active outbound file transfers screen. Categorises transfers into In Progress, Queued, and Completed sections with polished transfer cards.
 
 ### Key UI Elements
-- **Section headers** — Uppercase labels with count badges (e.g. "IN PROGRESS 2")
-- **Transfer cards** — `TransferCard` widgets with direction icon, file count, size info, status chip (animated spinner for active), gradient progress bar, BLAKE3 verified badge for completed
-- **Active count badge** — AppBar trailing badge showing number of actively transferring sessions
-- **Empty state** — Cloud upload icon with instructional text
-- **Encryption footer** — Lock icon + "Encrypted with XChaCha20-Poly1305"
+- **Header** — "Transfers" title (28px, w800, -1 letter spacing) with active count badge (primary-tinted pill with spinner + "N active")
+- **Section headers** — `_SectionHeader`: uppercase labels with primary-tinted count badges (rounded pill)
+- **Transfer cards** — `TransferCard` widgets on dark surface with gradient direction icon containers, status chips, BLAKE3 verified badge for completed
+- **Empty state** — Circular primary-tinted icon (swap arrows) with descriptive text, animated fadeIn
+- **Encryption footer** — Lock icon + "Encrypted with XChaCha20-Poly1305" in subtle white (0.2 alpha)
+- **Desktop centering** — `ConstrainedBox` maxWidth 600 for desktop layout
 
 ### Sub-widgets
 | Widget | File | Purpose |
@@ -195,11 +205,11 @@ Active outbound file transfers screen. Categorises transfers into In Progress, Q
 Incoming file transfers screen. Features incoming request cards with Accept/Decline actions, plus active receiving and completed sections.
 
 ### Key UI Elements
-- **Incoming request card** — `_IncomingRequestCard`: gradient-bordered card with file info, "Accept" (filled accent) and "Decline" (outlined coral) buttons. Shows for `TransferStatus.pending` sessions.
+- **Incoming request card** — `_IncomingRequestCard`: gradient background (accent 0.08 → primary 0.04), file info with device name, "Accept" button with cyan gradient (`#00D9FF → #00B4D8`), "Decline" button with error border outline. Shows for `TransferStatus.pending` sessions.
 - **Active receiving** — Standard `TransferCard` widgets for `TransferStatus.transferring` sessions
 - **Completed section** — Standard `TransferCard` with BLAKE3 verified badge
-- **Empty state** — Circular accent-tinted cloud download icon with descriptive text
-- **Encryption footer** — "All transfers are end-to-end encrypted"
+- **Empty state** — Circular accent-tinted download icon with descriptive text, animated fadeIn
+- **Encryption footer** — Lock icon + "All transfers are end-to-end encrypted" in subtle white
 
 ---
 
@@ -217,11 +227,11 @@ Incoming file transfers screen. Features incoming request cards with Accept/Decl
 iMessage-style device chat for sending quick messages alongside file transfers. Features gradient sent bubbles, grey received bubbles, and a pill-shaped input bar.
 
 ### Key UI Elements
-- **Chat bubbles** — `_ChatBubble`: sent = purple gradient (`primary → #8B80FF`), received = grey surface container. Rounded corners with iOS-style asymmetric bottom corners (smaller on sender's side). Each bubble shows the message text + timestamp.
-- **Time labels** — `_TimeLabel`: shown between messages that are >5 minutes apart, formatted as "HH:MM AM/PM"
-- **Input bar** — Row with circular "+" attachment button (primary tint), pill-shaped text field, and gradient circular send button (primary → accent, arrow-up icon)
-- **AppBar subtitle** — "End-to-end encrypted" in mint green
-- **Empty state** — Chat bubble outline icon with instructional text, animated fade-in
+- **Chat header** — `_ChatHeader`: device name title with "E2E Encrypted" badge (success color shield icon) in subtitle area
+- **Chat bubbles** — `_ChatBubble`: sent = gradient (`primary → #8B7BFF`) with rounded corners (topLeft/topRight/bottomLeft: 18, bottomRight: 4), received = dark surface (`#1A1A2E`) with subtle border and mirrored radius. Each shows message text + time.
+- **Time pill labels** — `_TimePill`: frosted pill with `BackdropFilter`, shown between message groups >5 min apart
+- **Input bar** — `_InputBar`: dark surface container with rounded TextField, gradient circular send button (primary → accent, arrow-up icon), no attachment button in current version
+- **Empty state** — Circular primary-tinted chat bubble icon with descriptive text, animated fadeIn
 
 ### Behaviour
 - Auto-scrolls to bottom after sending via `WidgetsBinding.addPostFrameCallback`
@@ -244,11 +254,11 @@ iMessage-style device chat for sending quick messages alongside file transfers. 
 Auto-sync screen where users watch local folders for changes that automatically transfer to paired devices. Uses the `watcher` package under the hood for file system events.
 
 ### Key UI Elements
-- **Info card** — Gradient-bordered explanation card with info icon: "Live Folders auto-sync file changes to your paired device whenever modifications are detected."
-- **Folder cards** — `_FolderCard`: surface container with folder icon (primary), folder name (from `path.basename`), sync status indicator (green dot + "Watching" or grey + "Paused"), and a coral remove button
-- **Gradient FAB** — "Add Folder" button with `primary → accent` gradient and shadow
-- **Empty state** — Circular folder icon + description + info card, animated fade-in
-- **Staggered entrance** — Folder cards animate in with staggered delays (50ms × index)
+- **Info banner** — `_InfoBanner`: gradient background (primary 0.06 → accent 0.03) with info icon, explanation text, and subtle border
+- **Folder cards** — `_FolderCard`: dark surface container with folder icon (primary gradient), folder name, sync status glow dots (green dot + "Watching" with success glow, or grey + "Paused"), coral remove button. `MouseRegion` hover states on desktop.
+- **Gradient "Add Folder" button** — Full-width gradient button (`primary → #8B7BFF`) with plus icon, press animation (`AnimatedScale` 0.97), and primary glow shadow
+- **Empty state** — Circular primary-tinted folder icon with descriptive text, info banner below
+- **Staggered entrance** — `flutter_animate` fadeIn + slideY with staggered delays per card
 
 ### Behaviour
 - `addFolder(path)` — starts a `DirectoryWatcher` on the path
@@ -270,16 +280,19 @@ Auto-sync screen where users watch local folders for changes that automatically 
 iOS-style grouped settings screen with a profile card, toggle switches (CupertinoSwitch), and info tiles organised into labelled sections.
 
 ### Key UI Elements
-- **Profile card** — Gradient-bordered card with circular avatar (initial letter, primary → accent gradient), display name, "Tap to edit" subtitle. Tap opens a rename dialog.
-- **Section groups** — `_SettingsGroup`: rounded surface container with dividers between children, 5 sections:
-  - **General** — Dark Mode toggle
-  - **Transfer** — LZ4 Compression toggle
-  - **Discovery** — BLE Discovery toggle
-  - **Security** — Encryption info (XChaCha20-Poly1305 · Ed25519), File Integrity info (BLAKE3)
-  - **About** — Version 0.1.0 (tap opens `showAboutDialog`)
-- **Toggle tiles** — `_ToggleTile`: coloured icon box + title/subtitle + `CupertinoSwitch` with primary active track
-- **Info tiles** — `_InfoTile`: coloured icon box + title/subtitle + optional chevron for tappable items
-- **Rename dialog** — `AlertDialog` with rounded shape, text field, Cancel/Save actions
+- **Profile card** — `_ProfileCard`: gradient background (primary 0.1 → accent 0.05) with primary border (0.15 alpha), circular avatar (gradient `primary → #8B7BFF` with glow shadow), display name, "Tap to edit display name" subtitle, chevron. Press animation (`AnimatedScale` 0.98).
+- **Section groups** — `_buildSection()`: `SliverToBoxAdapter` with dark surface container (`#1A1A2E`), clipped with antiAlias, subtle border, dividers between children. 5 sections:
+  - **GENERAL** — Dark Mode toggle
+  - **TRANSFER** — LZ4 Compression toggle
+  - **DISCOVERY** — BLE Discovery toggle
+  - **SECURITY** — Encryption info (XChaCha20-Poly1305 · Ed25519), File Integrity info (BLAKE3) — both with success-colored icons
+  - **ABOUT** — Version 0.1.0 with `_VersionBadge` ("Beta" pill in primary tint)
+- **Toggle tiles** — `_ToggleTile`: 32px icon box with colored tint + title/subtitle + `CupertinoSwitch` with primary active track
+- **Info tiles** — `_InfoTile`: 32px icon box with colored tint + title/subtitle + optional trailing widget
+- **Rename bottom sheet** — `showModalBottomSheet` (not AlertDialog): dark surface container with rounded corners (20px), dark background text field, gradient "Save" button (`primary → #8B7BFF`), "Cancel" with subtle background
+- **Footer** — Small logo SVG (20px, 0.12 alpha) + "Blink · Privacy First" text
+- **Entrance animations** — `flutter_animate` fadeIn with staggered delays per section (100ms increments)
+- **Desktop centering** — `ConstrainedBox` maxWidth 560
 
 ### Behaviour
 - `setDarkMode(bool)`, `setCompressionEnabled(bool)`, `setBleEnabled(bool)`, `setDisplayName(String)` via settings notifier
@@ -294,14 +307,14 @@ iOS-style grouped settings screen with a profile card, toggle switches (Cupertin
 | **File** | `lib/features/transfer/widgets/transfer_card.dart` |
 | **Used by** | Send Screen, Receive Screen |
 
-Polished card showing a single `TransferSession`'s progress. Features:
-- Direction icon (up/down arrow) in coloured container
-- File count + transferred/total size
-- Animated status chip with spinner (transferring), check icon (completed), or coloured label
-- Gradient progress bar (primary→accent for send, accent→mint for receive)
-- Percentage label + pause icon (active) or BLAKE3 verified badge (completed)
+Dark surface card (`#1A1A2E`) showing a single `TransferSession`'s progress. Features:
+- Direction icon (up/down arrow) in gradient container (primary → accent for send, accent → success for receive)
+- Device name + file count + transferred/total size
+- Status chips: gradient-tinted pills — primary for transferring (with spinner), success for completed (with check), warning for pending, error for failed
+- Gradient progress bar (primary → `#8B7BFF` for send, accent → success for receive) with rounded track on dark hover background
+- BLAKE3 verified badge on completion (success-tinted shield icon + "BLAKE3 Verified" text)
 - `_formatBytes()` helper for human-readable size strings
-- Entrance animation: fadeIn + slideY
+- Entrance animation: `flutter_animate` fadeIn + slideY
 
 ### TransferProgressBar
 | Key | Value |
@@ -322,11 +335,13 @@ Animated gradient linear progress bar with:
 | **File** | `lib/features/discovery/widgets/device_bubble.dart` |
 | **Used by** | Discovery Screen |
 
-Discovered device indicator on the radar with:
-- Cyan glow effect via `BoxShadow`
-- Platform-specific icon (switch expression on `DevicePlatform` — phone, laptop, desktop, tablet)
-- Dark surface styling for radar context
-- Device name label below
+Glassmorphic discovered device indicator on the radar with:
+- `BackdropFilter` with sigma 12 for glassmorphism effect
+- Semi-transparent dark surface background (0.7 alpha) with subtle white border (0.08 alpha)
+- Platform-specific icon badge (switch expression on `DevicePlatform` — phone, laptop, desktop, tablet) in a small 20px primary-tinted circle
+- Device name label below with white 0.7 alpha text
+- Press scale animation (`AnimatedScale` 0.92) via `GestureDetector` tap handlers
+- 56px diameter circular container
 
 ### RadarPainter
 | Key | Value |
@@ -334,12 +349,15 @@ Discovered device indicator on the radar with:
 | **File** | `lib/features/discovery/widgets/radar_painter.dart` |
 | **Used by** | Discovery Screen |
 
-`CustomPainter` rendering the radar visualisation:
-- 4 concentric rings at 25%, 50%, 75%, 100% radius with decreasing cyan opacity
-- `ui.Gradient.sweep` for the cone/sweep effect
-- Gradient sweep line from centre to edge
-- Pulsing centre dot glow
-- Rotates via the `angle` parameter driven by `AnimationController`
+`CustomPainter` rendering a premium 5-ring radar visualisation:
+- Ambient radial glow (primary gradient) behind rings
+- 5 concentric rings at 20%, 40%, 60%, 80%, 100% radius with decreasing white opacity
+- 24 particle dots distributed across rings that brighten when near the sweep angle
+- `ui.Gradient.sweep` for the cone/trail effect with 60° arc
+- Gradient sweep line from centre to edge with accent tip glow
+- Pulsing centre glow driven by `pulseValue` parameter
+- Accepts `deviceCount` for future adaptive rendering
+- Rotates via the `animationValue` parameter driven by `AnimationController`
 
 ---
 
@@ -347,17 +365,23 @@ Discovered device indicator on the radar with:
 
 | Token | Value |
 |---|---|
-| **Primary** | `#6C63FF` (Indigo-violet) |
-| **Accent** | `#00D9FF` (Electric cyan) |
-| **Coral** | `#FF6B6B` |
-| **Mint** | `#2ED47A` |
-| **Amber** | `#FFBB33` |
+| **Primary** | `#6C63FF` (Electric Violet) |
+| **Primary Light** | `#8B7BFF` (gradient end for buttons/active) |
+| **Accent** | `#00D9FF` (Cyan) |
+| **Dark Background** | `#0D0D12` (True black OLED base) |
+| **Dark Surface** | `#1A1A2E` (Cards, containers) |
+| **Dark Hover** | `#2A2A3C` (Hover states) |
+| **Dark Border** | `#35354A` (Subtle borders when needed) |
+| **Success** | `#2ED47A` (Completed, verified) |
+| **Warning** | `#FFBB33` (Pending, caution) |
+| **Error** | `#FF6B6B` (Failed, decline) |
+| **Info** | `#5B8DEF` (Informational) |
 | **Font** | Inter (via `google_fonts`) |
 | **Spacing grid** | 4 px base (`BlinkSpacing`) |
-| **Radius** | `xs:4, sm:8, md:12, lg:16, xl:24, xxl:32, full:999` |
-| **Durations** | `instant:100ms, quick:200ms, standard:350ms, emphasis:500ms, slow:700ms` |
-| **Curves** | `standard:easeOutCubic, enter:easeOutBack, spring:elasticOut, overshoot:custom` |
-| **Animations** | `flutter_animate ^4.5.2` with `BlinkEffects` presets |
+| **Animations** | `flutter_animate ^4.5.2` with declarative chains |
+| **Interaction** | `GestureDetector` + `AnimatedScale` (no InkWell/splash) |
+| **Glassmorphism** | `BackdropFilter` sigma 10–24 on nav, bubbles, headers |
+| **No-Line Rule** | Hierarchy via background color shifts, not borders |
 
 ---
 
@@ -471,21 +495,26 @@ Desktop transfer management with split view for Send and Receive panels.
 
 | Key | Value |
 |---|---|
-| **File** | `lib/shared/widgets/bottom_nav_bar.dart` |
+| **File** | `lib/shared/widgets/blink_navigation.dart` (`BlinkBottomNav`) |
 | **Type** | Component |
-| **Stitch Screen** | Generated March 2026 |
+
+### Implementation
+- **Frosted glass** — `BackdropFilter` with sigma 24, semi-transparent dark background (0.88 alpha)
+- **Height** — 64px
+- **Top border** — Subtle white border (0.06 alpha) for glass edge effect
+- **All labels visible** — Both active and inactive items show labels (10px, medium weight)
 
 ### Tabs
-1. **Discovery** — Radar icon, active state purple filled
-2. **Transfer** — Up/down arrows icon
-3. **Chat** — Chat bubble icon with optional badge
+1. **Discover** — Radar icon
+2. **Transfer** — Swap vertical icon
+3. **Chat** — Chat bubble icon
 4. **Folders** — Folder icon
-5. **Settings** — Gear icon
+5. **Settings** — Settings icon
 
 ### States
-- Active: Purple #6C63FF filled icon with subtle glow
-- Inactive: Grey #9CA3AF outline icon
-- Badge: Coral dot for unread notifications
+- Active: White icon (0.9 alpha) + active dot indicator (4px purple circle with primary glow shadow)
+- Inactive: White icon (0.4 alpha)
+- No splash/ripple — uses `GestureDetector` for iOS feel
 
 ---
 

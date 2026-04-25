@@ -4,123 +4,139 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/transfer_session.dart';
 import '../providers/transfer_provider.dart';
 import '../widgets/transfer_card.dart';
 
-/// Screen for receiving files from paired devices.
-///
-/// Stitch screen: "Blink Receiving Files Screen" (752074d96b414e74b8483b85954e0629)
 class ReceiveScreen extends ConsumerWidget {
   const ReceiveScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessions = ref.watch(activeTransfersProvider);
-    final theme = Theme.of(context);
 
     final receiving = sessions
         .where((s) => s.direction == TransferDirection.receive)
         .toList();
     final pending =
         receiving.where((s) => s.status == TransferStatus.pending).toList();
-    final active =
-        receiving.where((s) => s.status == TransferStatus.transferring).toList();
+    final active = receiving
+        .where((s) => s.status == TransferStatus.transferring)
+        .toList();
     final completed =
         receiving.where((s) => s.status == TransferStatus.completed).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Receiving',
-          style: theme.textTheme.headlineMedium,
-        ),
-        centerTitle: true,
-        actions: [
-          if (receiving.isNotEmpty)
+      backgroundColor: BlinkColors.darkBackground,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.only(right: BlinkSpacing.sm),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: BlinkSpacing.sm, vertical: BlinkSpacing.xs),
-                decoration: BoxDecoration(
-                  color: BlinkColors.accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(BlinkRadius.full),
-                ),
-                child: Text(
-                  '${active.length} active',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: BlinkColors.accent,
-                    fontWeight: FontWeight.w600,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_rounded,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      size: 20,
+                    ),
+                    onPressed: () => context.pop(),
                   ),
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: receiving.isEmpty
-          ? _EmptyState(theme: theme)
-          : ListView(
-              padding: const EdgeInsets.all(BlinkSpacing.md),
-              children: [
-                // ── Incoming requests ──────────────────
-                if (pending.isNotEmpty) ...[
-                  _SectionLabel('Incoming Requests'),
-                  const Gap(BlinkSpacing.sm),
-                  for (final s in pending) _IncomingRequestCard(session: s),
-                  const Gap(BlinkSpacing.md),
-                ],
-                // ── Actively receiving ─────────────────
-                if (active.isNotEmpty) ...[
-                  _SectionLabel('Receiving'),
-                  const Gap(BlinkSpacing.sm),
-                  for (final s in active) TransferCard(session: s),
-                  const Gap(BlinkSpacing.md),
-                ],
-                // ── Completed ──────────────────────────
-                if (completed.isNotEmpty) ...[
-                  _SectionLabel('Completed'),
-                  const Gap(BlinkSpacing.sm),
-                  for (final s in completed) TransferCard(session: s),
-                ],
-                const Gap(BlinkSpacing.xl),
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.lock_rounded,
-                          size: 12,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.3)),
-                      const Gap(4),
-                      Text(
-                        'All transfers are end-to-end encrypted',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.3),
-                          fontSize: 10,
+                  const Expanded(
+                    child: Text(
+                      'Receiving',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (active.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: BlinkColors.accent.withValues(alpha: 0.12),
+                      ),
+                      child: Text(
+                        '${active.length} active',
+                        style: const TextStyle(
+                          color: BlinkColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    )
+                  else
+                    const SizedBox(width: 48),
+                ],
+              ),
             ),
+            const Gap(8),
+            // Content
+            Expanded(
+              child: receiving.isEmpty
+                  ? _EmptyState()
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        if (pending.isNotEmpty) ...[
+                          _SectionHeader(label: 'Incoming Requests'),
+                          const Gap(8),
+                          for (final s in pending)
+                            _IncomingRequestCard(session: s),
+                          const Gap(16),
+                        ],
+                        if (active.isNotEmpty) ...[
+                          _SectionHeader(label: 'Receiving'),
+                          const Gap(8),
+                          for (final s in active) TransferCard(session: s),
+                          const Gap(16),
+                        ],
+                        if (completed.isNotEmpty) ...[
+                          _SectionHeader(label: 'Completed'),
+                          const Gap(8),
+                          for (final s in completed)
+                            TransferCard(session: s),
+                        ],
+                        const Gap(24),
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock_rounded,
+                                  size: 12,
+                                  color: Colors.white.withValues(alpha: 0.2)),
+                              const Gap(4),
+                              Text(
+                                'All transfers are end-to-end encrypted',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(16),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  final ThemeData theme;
-  const _EmptyState({required this.theme});
-
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -135,55 +151,58 @@ class _EmptyState extends StatelessWidget {
               color: BlinkColors.accent.withValues(alpha: 0.08),
             ),
             child: Icon(
-              Icons.cloud_download_outlined,
-              size: 40,
-              color: BlinkColors.accent.withValues(alpha: 0.4),
+              Icons.download_rounded,
+              size: 36,
+              color: BlinkColors.accent.withValues(alpha: 0.3),
             ),
           ),
-          const Gap(BlinkSpacing.lg),
+          const Gap(20),
           Text(
-            'Waiting for incoming files…',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            'Waiting for incoming files...',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const Gap(BlinkSpacing.xs),
+          const Gap(6),
           Text(
             'Files from paired devices will appear here',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.25),
+              fontSize: 14,
             ),
           ),
         ],
-      ).animate().fadeIn(duration: BlinkDurations.standard),
+      ).animate().fadeIn(duration: 500.ms),
     );
   }
 }
 
-/// Incoming request card with accept/decline actions.
 class _IncomingRequestCard extends StatelessWidget {
   final TransferSession session;
   const _IncomingRequestCard({required this.session});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final fileCount = session.fileIds.length;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: BlinkSpacing.md),
-      padding: const EdgeInsets.all(BlinkSpacing.md),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
         gradient: LinearGradient(
-          colors: [
-            BlinkColors.accent.withValues(alpha: 0.06),
-            BlinkColors.primary.withValues(alpha: 0.04),
-          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            BlinkColors.accent.withValues(alpha: 0.08),
+            BlinkColors.primary.withValues(alpha: 0.04),
+          ],
         ),
-        borderRadius: BorderRadius.circular(BlinkRadius.lg),
-        border: Border.all(color: BlinkColors.accent.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: BlinkColors.accent.withValues(alpha: 0.15),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,27 +213,30 @@ class _IncomingRequestCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: BlinkColors.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(BlinkRadius.sm),
+                  borderRadius: BorderRadius.circular(10),
+                  color: BlinkColors.accent.withValues(alpha: 0.12),
                 ),
                 child: const Icon(Icons.arrow_downward_rounded,
                     color: BlinkColors.accent, size: 20),
               ),
-              const Gap(BlinkSpacing.sm),
+              const Gap(12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Incoming Transfer',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Text(
-                      '$fileCount file${fileCount == 1 ? '' : 's'} • ${_formatBytes(session.totalBytes)}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.55),
+                      '$fileCount file${fileCount == 1 ? '' : 's'} · ${_formatBytes(session.totalBytes)}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -222,48 +244,67 @@ class _IncomingRequestCard extends StatelessWidget {
               ),
             ],
           ),
-          const Gap(BlinkSpacing.md),
+          const Gap(14),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () {/* decline */},
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: BlinkColors.coral,
-                    side: const BorderSide(color: BlinkColors.coral),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(BlinkRadius.full),
+                child: GestureDetector(
+                  onTap: () {/* decline */},
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.white.withValues(alpha: 0.06),
+                      border: Border.all(
+                        color: BlinkColors.error.withValues(alpha: 0.3),
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: BlinkSpacing.sm),
+                    child: Center(
+                      child: Text(
+                        'Decline',
+                        style: TextStyle(
+                          color: BlinkColors.error.withValues(alpha: 0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Text('Decline'),
                 ),
               ),
-              const Gap(BlinkSpacing.sm),
+              const Gap(10),
               Expanded(
-                child: FilledButton(
-                  onPressed: () {/* accept */},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: BlinkColors.accent,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(BlinkRadius.full),
+                child: GestureDetector(
+                  onTap: () {/* accept */},
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      gradient: const LinearGradient(
+                        colors: [BlinkColors.accent, Color(0xFF00B8D9)],
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: BlinkSpacing.sm),
+                    child: const Center(
+                      child: Text(
+                        'Accept',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Text('Accept'),
                 ),
               ),
             ],
           ),
         ],
       ),
-    ).animate().fadeIn(duration: BlinkDurations.standard).slideY(
-          begin: 0.05,
-          duration: BlinkDurations.standard,
-          curve: BlinkCurves.standard,
+    ).animate().fadeIn(duration: 400.ms).slideY(
+          begin: 0.04,
+          duration: 400.ms,
+          curve: Curves.easeOutCubic,
         );
   }
 
@@ -277,19 +318,19 @@ class _IncomingRequestCard extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  const _SectionHeader({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Text(
-      text.toUpperCase(),
-      style: theme.textTheme.labelSmall?.copyWith(
-        fontWeight: FontWeight.w700,
+      label.toUpperCase(),
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.3),
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
         letterSpacing: 1.2,
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -42,33 +44,38 @@ class BlinkBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
-    return Container(
-      height: BlinkSpacing.bottomNavHeight + bottomPadding,
-      decoration: BoxDecoration(
-        color: BlinkColors.darkBackground.withValues(alpha: 0.95),
-        border: Border(
-          top: BorderSide(
-            color: BlinkColors.darkHover.withValues(alpha: 0.5),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: items.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final isActive = index == currentIndex;
 
-            return _NavItem(
-              item: item,
-              isActive: isActive,
-              onTap: () => onTap(index),
-            );
-          }).toList(),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          height: 64 + bottomPadding,
+          decoration: BoxDecoration(
+            color: BlinkColors.darkBackground.withValues(alpha: 0.88),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                final isActive = index == currentIndex;
+
+                return _NavItem(
+                  item: item,
+                  isActive: isActive,
+                  onTap: () => onTap(index),
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ),
     );
@@ -119,7 +126,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
         : widget.item.iconPath;
     final color = widget.isActive
         ? BlinkColors.primary
-        : BlinkColors.darkTextTertiary;
+        : Colors.white.withValues(alpha: 0.35);
 
     return GestureDetector(
       onTapDown: (_) => _controller.forward(),
@@ -138,18 +145,34 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
             children: [
               SvgPicture.asset(
                 iconPath,
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
               ),
+              const SizedBox(height: 4),
+              Text(
+                widget.item.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                  letterSpacing: 0.1,
+                ),
+              ),
               if (widget.isActive) ...[
-                const SizedBox(height: 4),
-                Text(
-                  widget.item.label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+                const SizedBox(height: 3),
+                Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: BlinkColors.primary,
+                    boxShadow: [
+                      BoxShadow(
+                        color: BlinkColors.primary.withValues(alpha: 0.5),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -202,7 +225,14 @@ class _BlinkSidebarState extends State<BlinkSidebar> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       width: width,
-      color: BlinkColors.darkBackground,
+      decoration: BoxDecoration(
+        color: BlinkColors.darkSurface,
+        border: Border(
+          right: BorderSide(
+            color: Colors.white.withValues(alpha: 0.04),
+          ),
+        ),
+      ),
       child: Column(
         children: [
           // Header (logo, user info)
@@ -275,14 +305,14 @@ class _SidebarItemState extends State<_SidebarItem> {
         ? widget.item.activeIconPath!
         : widget.item.iconPath;
     final color = widget.isActive
-        ? BlinkColors.white
+        ? Colors.white
         : _isHovered
-            ? BlinkColors.darkTextPrimary
-            : BlinkColors.darkTextSecondary;
+            ? Colors.white.withValues(alpha: 0.8)
+            : Colors.white.withValues(alpha: 0.4);
     final backgroundColor = widget.isActive
-        ? BlinkColors.primary
+        ? BlinkColors.primary.withValues(alpha: 0.15)
         : _isHovered
-            ? BlinkColors.darkHover
+            ? Colors.white.withValues(alpha: 0.04)
             : Colors.transparent;
 
     return Padding(
@@ -301,7 +331,12 @@ class _SidebarItemState extends State<_SidebarItem> {
             ),
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(BlinkRadius.md),
+              borderRadius: BorderRadius.circular(10),
+              border: widget.isActive
+                  ? Border.all(
+                      color: BlinkColors.primary.withValues(alpha: 0.2),
+                    )
+                  : null,
             ),
             child: Row(
               mainAxisAlignment: widget.isExpanded
@@ -453,6 +488,7 @@ class _MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BlinkColors.darkBackground,
+      extendBody: true,
       body: child,
       bottomNavigationBar: BlinkBottomNav(
         items: items,

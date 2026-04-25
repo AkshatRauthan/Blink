@@ -2,106 +2,162 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../providers/live_folder_provider.dart';
 
-/// Live Folders sync screen — watch local folders for changes.
-///
-/// Stitch screen: "Blink Live Folders Sync Screen" (31787a6643ad46b59daac2ec97cffeed)
 class LiveFolderScreen extends ConsumerWidget {
   const LiveFolderScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(liveFolderNotifierProvider);
-    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.pop(),
-        ),
-        title: Text('Live Folders',
-            style: theme.textTheme.headlineMedium),
-        centerTitle: true,
-      ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(BlinkRadius.full),
-          gradient: const LinearGradient(
-            colors: [BlinkColors.primary, BlinkColors.accent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: BlinkColors.primary.withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: () =>
-              ref.read(liveFolderNotifierProvider.notifier).addFolder(''),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: Text('Add Folder',
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-        ),
-      ),
-      body: state.syncedFolders.isEmpty
-          ? _EmptyState(theme: theme)
-          : ListView(
-              padding: const EdgeInsets.all(BlinkSpacing.md),
+      backgroundColor: BlinkColors.darkBackground,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints:
+                BoxConstraints(maxWidth: isDesktop ? 600 : double.infinity),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Explanation card ───────────────────
-                _InfoCard(theme: theme),
-                const Gap(BlinkSpacing.lg),
-                // ── Folder list ───────────────────────
-                Text(
-                  'SYNCED FOLDERS',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Live Folders',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ),
+                      _AddFolderButton(
+                        onTap: () => ref
+                            .read(liveFolderNotifierProvider.notifier)
+                            .addFolder(''),
+                      ),
+                    ],
                   ),
                 ),
-                const Gap(BlinkSpacing.sm),
-                ...state.syncedFolders.asMap().entries.map(
-                      (e) => _FolderCard(
-                        folderPath: e.value,
-                        index: e.key,
-                        onRemove: () => ref
-                            .read(liveFolderNotifierProvider.notifier)
-                            .removeFolder(e.value),
-                      ),
-                    ),
-                const Gap(80), // FAB clearance
+                const Gap(16),
+                // Content
+                Expanded(
+                  child: state.syncedFolders.isEmpty
+                      ? _EmptyState()
+                      : ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          children: [
+                            _InfoBanner(),
+                            const Gap(20),
+                            Text(
+                              'SYNCED FOLDERS',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const Gap(10),
+                            ...state.syncedFolders.asMap().entries.map(
+                                  (e) => _FolderCard(
+                                    folderPath: e.value,
+                                    index: e.key,
+                                    onRemove: () => ref
+                                        .read(liveFolderNotifierProvider
+                                            .notifier)
+                                        .removeFolder(e.value),
+                                  ),
+                                ),
+                            const Gap(80),
+                          ],
+                        ),
+                ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddFolderButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const _AddFolderButton({required this.onTap});
+
+  @override
+  State<_AddFolderButton> createState() => _AddFolderButtonState();
+}
+
+class _AddFolderButtonState extends State<_AddFolderButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              colors: [BlinkColors.primary, Color(0xFF8B7BFF)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: BlinkColors.primary.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, color: Colors.white, size: 18),
+              Gap(4),
+              Text(
+                'Add Folder',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  final ThemeData theme;
-  const _EmptyState({required this.theme});
-
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(BlinkSpacing.xl),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -114,66 +170,69 @@ class _EmptyState extends StatelessWidget {
               ),
               child: Icon(
                 Icons.folder_copy_outlined,
-                size: 40,
-                color: BlinkColors.primary.withValues(alpha: 0.4),
+                size: 36,
+                color: BlinkColors.primary.withValues(alpha: 0.3),
               ),
             ),
-            const Gap(BlinkSpacing.lg),
+            const Gap(20),
             Text(
               'No Live Folders yet',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const Gap(BlinkSpacing.xs),
+            const Gap(6),
             Text(
               'Add a folder to keep it synced with\nyour paired device in real time.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.25),
+                fontSize: 14,
+                height: 1.5,
               ),
             ),
-            const Gap(BlinkSpacing.xl),
-            _InfoCard(theme: theme),
+            const Gap(28),
+            _InfoBanner(),
           ],
-        ),
-      ).animate().fadeIn(duration: BlinkDurations.standard),
+        ).animate().fadeIn(duration: 500.ms),
+      ),
     );
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  final ThemeData theme;
-  const _InfoCard({required this.theme});
-
+class _InfoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(BlinkSpacing.md),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
-          colors: [
-            BlinkColors.primary.withValues(alpha: 0.06),
-            BlinkColors.accent.withValues(alpha: 0.04),
-          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            BlinkColors.primary.withValues(alpha: 0.08),
+            BlinkColors.accent.withValues(alpha: 0.04),
+          ],
         ),
-        borderRadius: BorderRadius.circular(BlinkRadius.lg),
-        border:
-            Border.all(color: BlinkColors.primary.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: BlinkColors.primary.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         children: [
           Icon(Icons.info_outline_rounded,
-              color: BlinkColors.primary, size: 20),
-          const Gap(BlinkSpacing.sm),
+              color: BlinkColors.primary.withValues(alpha: 0.7), size: 18),
+          const Gap(10),
           Expanded(
             child: Text(
-              'Live Folders auto-sync file changes to your paired device whenever modifications are detected.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                height: 1.5,
+              'Live Folders auto-sync changes to your paired device in real time.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 13,
+                height: 1.4,
               ),
             ),
           ),
@@ -183,7 +242,7 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-class _FolderCard extends StatelessWidget {
+class _FolderCard extends StatefulWidget {
   final String folderPath;
   final int index;
   final VoidCallback onRemove;
@@ -195,91 +254,121 @@ class _FolderCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final folderName =
-        folderPath.isEmpty ? 'Untitled Folder' : p.basename(folderPath);
-    // Placeholder — replace with actual sync state
-    final isSyncing = folderPath.isNotEmpty;
+  State<_FolderCard> createState() => _FolderCardState();
+}
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: BlinkSpacing.sm),
-      padding: const EdgeInsets.all(BlinkSpacing.md),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(BlinkRadius.lg),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+class _FolderCardState extends State<_FolderCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final folderName = widget.folderPath.isEmpty
+        ? 'Untitled Folder'
+        : p.basename(widget.folderPath);
+    final isSyncing = widget.folderPath.isNotEmpty;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? BlinkColors.darkSurface.withValues(alpha: 0.8)
+              : BlinkColors.darkSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: BlinkColors.darkHover.withValues(alpha: 0.3),
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Folder icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: BlinkColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(BlinkRadius.sm),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: BlinkColors.primary.withValues(alpha: 0.1),
+              ),
+              child: const Icon(Icons.folder_rounded,
+                  color: BlinkColors.primary, size: 20),
             ),
-            child: const Icon(Icons.folder_rounded,
-                color: BlinkColors.primary, size: 22),
-          ),
-          const Gap(BlinkSpacing.sm),
-          // Name + path
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  folderName,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Gap(2),
-                Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSyncing ? BlinkColors.mint : Colors.grey,
-                      ),
+            const Gap(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    folderName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const Gap(4),
-                    Text(
-                      isSyncing ? 'Watching' : 'Paused',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: isSyncing ? BlinkColors.mint : Colors.grey,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Gap(3),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSyncing
+                              ? BlinkColors.success
+                              : Colors.grey,
+                          boxShadow: isSyncing
+                              ? [
+                                  BoxShadow(
+                                    color: BlinkColors.success
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 4,
+                                  ),
+                                ]
+                              : null,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const Gap(5),
+                      Text(
+                        isSyncing ? 'Watching' : 'Paused',
+                        style: TextStyle(
+                          color: isSyncing
+                              ? BlinkColors.success
+                              : Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Remove button
-          IconButton(
-            icon: Icon(Icons.remove_circle_outline_rounded,
-                color: BlinkColors.coral.withValues(alpha: 0.7), size: 20),
-            onPressed: onRemove,
-          ),
-        ],
+            GestureDetector(
+              onTap: widget.onRemove,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: BlinkColors.error.withValues(alpha: 0.1),
+                ),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: BlinkColors.error.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     ).animate().fadeIn(
-          duration: BlinkDurations.standard,
-          delay: Duration(milliseconds: 50 * index),
+          duration: 400.ms,
+          delay: Duration(milliseconds: 60 * widget.index),
         );
   }
 }

@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../providers/onboarding_provider.dart';
 
-/// Onboarding screen — user picks a name + avatar before entering the app.
-///
-/// Design: iOS-inspired minimal layout with hero title, avatar picker,
-/// name field, and gradient CTA button on a light #F8F9FC background.
-/// Stitch screen: "Blink Welcome Screen" (e7644885a1d64e8782c1801285c42e6a)
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -24,24 +17,30 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  late final AnimationController _glowController;
+  late final AnimationController _pulseController;
+  late final AnimationController _orbController;
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2500),
     )..repeat(reverse: true);
+    _orbController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _glowController.dispose();
+    _pulseController.dispose();
+    _orbController.dispose();
     super.dispose();
   }
 
@@ -58,217 +57,406 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: BlinkSpacing.xl,
-              vertical: BlinkSpacing.xxl,
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: BlinkSpacing.maxContentWidth,
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Logo with glow ───────────────────────────
-                    _BlinkLogo(glowController: _glowController)
-                        .animate(effects: BlinkEffects.blurIn),
-                    const Gap(BlinkSpacing.xxl),
+      backgroundColor: BlinkColors.darkBackground,
+      body: Stack(
+        children: [
+          // Ambient gradient orbs
+          _AmbientOrbs(controller: _orbController),
 
-                    // ── Hero title ───────────────────────────────
-                    Text(
-                      AppStrings.onboardingTitle,
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    )
-                        .animate()
-                        .fadeIn(
-                            duration: BlinkDurations.standard, delay: 200.ms)
-                        .slideY(begin: 0.1, end: 0),
-                    const Gap(BlinkSpacing.sm),
-
-                    // ── Tagline ──────────────────────────────────
-                    Text(
-                      AppStrings.tagline,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    )
-                        .animate()
-                        .fadeIn(
-                            duration: BlinkDurations.standard, delay: 350.ms)
-                        .slideY(begin: 0.08, end: 0),
-                    const Gap(BlinkSpacing.xxl),
-
-                    // ── Avatar picker ────────────────────────────
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          // TODO: Open avatar picker
-                        },
-                        child: Stack(
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: BlinkColors.primary, width: 2),
-                                color:
-                                    BlinkColors.primary.withValues(alpha: 0.08),
-                              ),
-                              child: const Icon(Icons.person_rounded,
-                                  size: 40, color: BlinkColors.primary),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 64 : 32,
+                  vertical: 48,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Logo with pulsing glow
+                        _LogoWithGlow(controller: _pulseController)
+                            .animate()
+                            .fadeIn(duration: 800.ms)
+                            .scale(
+                              begin: const Offset(0.8, 0.8),
+                              duration: 800.ms,
+                              curve: Curves.easeOutBack,
                             ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: BlinkColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.camera_alt_rounded,
-                                    size: 14, color: BlinkColors.white),
+                        const Gap(40),
+
+                        // Title
+                        Text(
+                          'Blink',
+                          style: theme.textTheme.displayLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 52,
+                            letterSpacing: -2,
+                          ),
+                          textAlign: TextAlign.center,
+                        )
+                            .animate()
+                            .fadeIn(duration: 600.ms, delay: 300.ms)
+                            .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
+
+                        const Gap(8),
+
+                        // Tagline
+                        Text(
+                          'Share anything. Instantly. Privately.',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: BlinkColors.darkTextSecondary,
+                            fontSize: 16,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        )
+                            .animate()
+                            .fadeIn(duration: 600.ms, delay: 500.ms)
+                            .slideY(begin: 0.1, end: 0),
+
+                        const Gap(56),
+
+                        // Avatar picker
+                        GestureDetector(
+                          onTap: () {
+                            // TODO: Open avatar picker
+                          },
+                          child: Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  BlinkColors.primary.withValues(alpha: 0.15),
+                                  BlinkColors.accent.withValues(alpha: 0.08),
+                                ],
                               ),
+                              border: Border.all(
+                                color: BlinkColors.primary.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person_rounded,
+                                  size: 44,
+                                  color: BlinkColors.primary.withValues(alpha: 0.6),
+                                ),
+                                Positioned(
+                                  bottom: 2,
+                                  right: 2,
+                                  child: Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: const LinearGradient(
+                                        colors: [BlinkColors.primary, BlinkColors.accent],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: BlinkColors.primary.withValues(alpha: 0.4),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(duration: 500.ms, delay: 700.ms)
+                            .scale(begin: const Offset(0.85, 0.85), curve: Curves.easeOutBack),
+
+                        const Gap(32),
+
+                        // Name input
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            color: BlinkColors.darkSurface,
+                            border: Border.all(
+                              color: BlinkColors.darkHover.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: TextFormField(
+                            controller: _nameController,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: Colors.white,
+                              fontSize: 17,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Your name',
+                              hintStyle: TextStyle(
+                                color: BlinkColors.darkTextTertiary,
+                                fontSize: 17,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 18,
+                              ),
+                            ),
+                            validator: (v) =>
+                                (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                            onFieldSubmitted: (_) => _onContinue(),
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(duration: 500.ms, delay: 850.ms)
+                            .slideY(begin: 0.06, end: 0),
+
+                        const Gap(24),
+
+                        // CTA Button
+                        _GetStartedButton(onPressed: _onContinue)
+                            .animate()
+                            .fadeIn(duration: 500.ms, delay: 1000.ms)
+                            .slideY(begin: 0.08, end: 0),
+
+                        const Gap(40),
+
+                        // Security badges
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _SecurityBadge(
+                              icon: Icons.wifi_off_rounded,
+                              label: '100% Offline',
+                            ),
+                            const Gap(16),
+                            _SecurityBadge(
+                              icon: Icons.lock_rounded,
+                              label: 'E2E Encrypted',
+                            ),
+                            const Gap(16),
+                            _SecurityBadge(
+                              icon: Icons.devices_rounded,
+                              label: 'Cross-Platform',
                             ),
                           ],
-                        ),
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(
-                            duration: BlinkDurations.standard, delay: 450.ms)
-                        .scale(begin: const Offset(0.8, 0.8)),
-                    const Gap(BlinkSpacing.lg),
-
-                    // ── Name input ───────────────────────────────
-                    TextFormField(
-                      controller: _nameController,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge,
-                      decoration: InputDecoration(
-                        hintText: AppStrings.onboardingNameHint,
-                        prefixIcon: const Icon(Icons.person_outline_rounded,
-                            color: BlinkColors.lightTextTertiary),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Name required'
-                          : null,
-                      onFieldSubmitted: (_) => _onContinue(),
-                    )
-                        .animate()
-                        .fadeIn(
-                            duration: BlinkDurations.standard, delay: 550.ms)
-                        .slideY(begin: 0.06, end: 0),
-                    const Gap(BlinkSpacing.lg),
-
-                    // ── CTA button ───────────────────────────────
-                    _GradientButton(
-                      label: AppStrings.onboardingContinue,
-                      onPressed: _onContinue,
-                    )
-                        .animate()
-                        .fadeIn(
-                            duration: BlinkDurations.standard, delay: 650.ms)
-                        .slideY(begin: 0.08, end: 0),
-                  ],
+                        )
+                            .animate()
+                            .fadeIn(duration: 600.ms, delay: 1200.ms),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// ── Private widgets ─────────────────────────────────────────────────────────
-
-/// Stylised lightning-bolt logo with pulsing purple glow.
-class _BlinkLogo extends StatelessWidget {
-  final AnimationController glowController;
-  const _BlinkLogo({required this.glowController});
+class _AmbientOrbs extends StatelessWidget {
+  final AnimationController controller;
+  const _AmbientOrbs({required this.controller});
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return AnimatedBuilder(
-      animation: glowController,
-      builder: (context, child) {
-        final opacity = 0.15 + (glowController.value * 0.20);
-        return Center(
-          child: Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                colors: [Color(0x306C63FF), Color(0x006C63FF)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: BlinkColors.primary.withValues(alpha: opacity),
-                  blurRadius: 40,
-                  spreadRadius: 8,
+      animation: controller,
+      builder: (context, _) {
+        final t = controller.value;
+        return Stack(
+          children: [
+            Positioned(
+              top: size.height * 0.1 + 20 * t,
+              right: -60 + 30 * t,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      BlinkColors.primary.withValues(alpha: 0.12),
+                      BlinkColors.primary.withValues(alpha: 0),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-            child: const Icon(Icons.bolt_rounded,
-                size: 56, color: BlinkColors.primary),
-          ),
+            Positioned(
+              bottom: size.height * 0.15 - 15 * t,
+              left: -80 + 25 * t,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      BlinkColors.accent.withValues(alpha: 0.08),
+                      BlinkColors.accent.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 }
 
-/// Full-width gradient button.
-class _GradientButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onPressed;
-  const _GradientButton({required this.label, required this.onPressed});
+class _LogoWithGlow extends StatelessWidget {
+  final AnimationController controller;
+  const _LogoWithGlow({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: BlinkSpacing.buttonHeight,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [BlinkColors.primary, BlinkColors.primaryLight],
-        ),
-        borderRadius: BorderRadius.circular(BlinkRadius.md),
-        boxShadow: [
-          BoxShadow(
-            color: BlinkColors.primary.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        final glow = 0.2 + controller.value * 0.3;
+        return Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: BlinkColors.primary.withValues(alpha: glow),
+                blurRadius: 60,
+                spreadRadius: 10,
+              ),
+              BoxShadow(
+                color: BlinkColors.accent.withValues(alpha: glow * 0.4),
+                blurRadius: 80,
+                spreadRadius: 5,
+              ),
+            ],
           ),
-        ],
+          child: child,
+        );
+      },
+      child: SvgPicture.asset(
+        'assets/svg/logo/blink_logo.svg',
+        width: 120,
+        height: 120,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(BlinkRadius.md),
+    );
+  }
+}
+
+class _GetStartedButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _GetStartedButton({required this.onPressed});
+
+  @override
+  State<_GetStartedButton> createState() => _GetStartedButtonState();
+}
+
+class _GetStartedButtonState extends State<_GetStartedButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onPressed();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [BlinkColors.primary, Color(0xFF8B7BFF)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: BlinkColors.primary.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
           child: Center(
-            child: Text(label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: BlinkColors.white, fontWeight: FontWeight.w600)),
+            child: Text(
+              'Get Started',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SecurityBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _SecurityBadge({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: BlinkColors.darkSurface,
+            border: Border.all(
+              color: BlinkColors.darkHover.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Icon(icon, size: 18, color: BlinkColors.darkTextSecondary),
+        ),
+        const Gap(6),
+        Text(
+          label,
+          style: TextStyle(
+            color: BlinkColors.darkTextTertiary,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

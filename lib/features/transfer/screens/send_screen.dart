@@ -2,25 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/transfer_session.dart';
 import '../providers/transfer_provider.dart';
 import '../widgets/transfer_card.dart';
 
-/// Active file transfers / send screen.
-///
-/// Stitch screen: "Blink Active File Transfers / Send Screen" (deaab363a66443ae9ed469c76ee54647)
 class SendScreen extends ConsumerWidget {
   const SendScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessions = ref.watch(activeTransfersProvider);
-    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
 
     final sending = sessions
         .where((s) => s.direction == TransferDirection.send)
@@ -28,98 +23,142 @@ class SendScreen extends ConsumerWidget {
     final active =
         sending.where((s) => s.status == TransferStatus.transferring).toList();
     final queued = sending
-        .where(
-            (s) => s.status == TransferStatus.pending || s.status == TransferStatus.connecting)
+        .where((s) =>
+            s.status == TransferStatus.pending ||
+            s.status == TransferStatus.connecting)
         .toList();
     final completed =
         sending.where((s) => s.status == TransferStatus.completed).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Sending',
-          style: theme.textTheme.headlineMedium,
-        ),
-        centerTitle: true,
-        actions: [
-          if (sending.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: BlinkSpacing.sm),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: BlinkSpacing.sm, vertical: BlinkSpacing.xs),
-                decoration: BoxDecoration(
-                  color: BlinkColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(BlinkRadius.full),
-                ),
-                child: Text(
-                  '${active.length} active',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: BlinkColors.primary,
-                    fontWeight: FontWeight.w600,
+      backgroundColor: BlinkColors.darkBackground,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints:
+                BoxConstraints(maxWidth: isDesktop ? 600 : double.infinity),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Transfers',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ),
+                      if (active.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: BlinkColors.primary.withValues(alpha: 0.15),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: BlinkColors.primary,
+                                ),
+                              ),
+                              const Gap(6),
+                              Text(
+                                '${active.length} active',
+                                style: const TextStyle(
+                                  color: BlinkColors.primaryLight,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
+                const Gap(16),
+                // Content
+                Expanded(
+                  child: sending.isEmpty
+                      ? _EmptyState()
+                      : _TransferList(
+                          active: active,
+                          queued: queued,
+                          completed: completed,
+                        ),
+                ),
+              ],
             ),
-        ],
-      ),
-      body: sending.isEmpty ? _EmptyState(theme: theme) : _TransferList(
-        theme: theme,
-        active: active,
-        queued: queued,
-        completed: completed,
+          ),
+        ),
       ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  final ThemeData theme;
-  const _EmptyState({required this.theme});
-
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.cloud_upload_outlined,
-            size: 64,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-          ),
-          const Gap(BlinkSpacing.md),
-          Text(
-            'No active transfers',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: BlinkColors.primary.withValues(alpha: 0.08),
+            ),
+            child: Icon(
+              Icons.swap_vert_rounded,
+              size: 40,
+              color: BlinkColors.primary.withValues(alpha: 0.3),
             ),
           ),
-          const Gap(BlinkSpacing.xs),
+          const Gap(20),
           Text(
-            'Select files from discovery to start sending',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            'No active transfers',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Gap(6),
+          Text(
+            'Select files from discovery to start',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.25),
+              fontSize: 14,
             ),
           ),
         ],
-      ).animate().fadeIn(duration: BlinkDurations.standard),
+      ).animate().fadeIn(duration: 500.ms),
     );
   }
 }
 
 class _TransferList extends StatelessWidget {
-  final ThemeData theme;
   final List<TransferSession> active;
   final List<TransferSession> queued;
   final List<TransferSession> completed;
 
   const _TransferList({
-    required this.theme,
     required this.active,
     required this.queued,
     required this.completed,
@@ -128,46 +167,47 @@ class _TransferList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(BlinkSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
         if (active.isNotEmpty) ...[
           _SectionHeader(label: 'In Progress', count: active.length),
-          const Gap(BlinkSpacing.sm),
+          const Gap(8),
           for (final s in active) TransferCard(session: s),
-          const Gap(BlinkSpacing.md),
+          const Gap(16),
         ],
         if (queued.isNotEmpty) ...[
           _SectionHeader(label: 'Queued', count: queued.length),
-          const Gap(BlinkSpacing.sm),
+          const Gap(8),
           for (final s in queued) TransferCard(session: s),
-          const Gap(BlinkSpacing.md),
+          const Gap(16),
         ],
         if (completed.isNotEmpty) ...[
           _SectionHeader(label: 'Completed', count: completed.length),
-          const Gap(BlinkSpacing.sm),
+          const Gap(8),
           for (final s in completed) TransferCard(session: s),
         ],
-        const Gap(BlinkSpacing.xl),
-        // Encryption footer
+        const Gap(24),
         Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_rounded,
-                  size: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+              Icon(
+                Icons.lock_rounded,
+                size: 12,
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
               const Gap(4),
               Text(
                 'Encrypted with XChaCha20-Poly1305',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  fontSize: 10,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  fontSize: 11,
                 ),
               ),
             ],
           ),
         ),
-        const Gap(BlinkSpacing.md),
+        const Gap(16),
       ],
     );
   }
@@ -180,30 +220,30 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         Text(
           label.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.3),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
         ),
-        const Gap(BlinkSpacing.xs),
+        const Gap(8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-            color: BlinkColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(BlinkRadius.full),
+            color: BlinkColors.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             '$count',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: BlinkColors.primary,
+            style: const TextStyle(
+              color: BlinkColors.primaryLight,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              fontSize: 10,
             ),
           ),
         ),

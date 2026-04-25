@@ -9,14 +9,12 @@
 - `PARTIAL`: Scaffolded but not yet integrated end-to-end
 - `COMPLETE`: End-to-end implemented and validated
 
-## Current Reality Snapshot (April 24, 2026)
+## Current Reality Snapshot (April 25, 2026)
 
-- **Phases 1–3 backend: COMPLETE.** Crypto, HTTP transfer, discovery, and QR handshake are fully implemented with 18 passing tests.
-- UI across core features is implemented (scaffolded during Phase 0).
-- Phase 4 (UI stitching to live backends) is the active frontier.
-- Settings remains the most complete end-to-end UI feature.
-
-Detailed audit: [docs/Status_Audit_2026-04-24.md](docs/Status_Audit_2026-04-24.md)
+- **Phases 1–3 backend: COMPLETE.** Crypto, HTTP transfer, discovery, and QR handshake are fully implemented with 29 passing tests.
+- **Phase 4 visual UI redesign: COMPLETE.** All 9 core screens + 5 sub-widgets fully rewritten with "Midnight Obsidian" premium dark design. Logo created. 0 analyzer errors/warnings.
+- Phase 4 wiring (UI → live backend services) is the active frontier.
+- Linux build blocked by upstream flutter_webrtc plugin issue (missing libwebrtc headers).
 
 ## Milestones
 
@@ -54,18 +52,38 @@ Detailed audit: [docs/Status_Audit_2026-04-24.md](docs/Status_Audit_2026-04-24.m
   * `KeyStoreService` — FlutterSecureStorage persistence for Ed25519 identity keypair
   * `NativeCryptoService.signDetached/verifyDetached` — Ed25519 signature APIs
 
-### M3: The Latest Stitch UI — IN PROGRESS
-**Target:** Visual parity with the "Midnight Obsidian" Figma designs.
+### M3: The Latest UI — PARTIAL
+**Target:** Visual parity with the "Midnight Obsidian" designs + wiring to live backends.
 * **Goals:** 
-  * [ ] Smooth 60fps/120fps radar animations.
-  * [ ] Rebuilt Transfer Cards, Settings, and Onboarding flowing cleanly with `go_router`.
+  * ✅ Complete "Midnight Obsidian" UI redesign — all 14 screen files rewritten.
+  * ✅ Smooth 60fps radar with 5-ring CustomPainter, sweep cone, particle dots, ambient glow.
+  * ✅ Rebuilt Transfer Cards, Settings, Chat, Live Folders, QR Show/Scan, Onboarding, Discovery.
+  * ✅ Glassmorphism (BackdropFilter) on nav bar, device bubbles, discovery header.
+  * ✅ Adaptive layouts: mobile (<800px bottom nav) + desktop (≥800px sidebar rail + side panels).
+  * ✅ Logo: lightning bolt SVG (128×128 full + 32×32 compact) with brand gradient.
   * [ ] Wire all UI screens to live backend services (discovery, transfer, QR).
-* **Status:** IN PROGRESS
-* **Active work:**
+* **Status:** PARTIAL — visual redesign complete, backend wiring pending
+* **What shipped (visual):**
+  * `OnboardingScreen` — ambient gradient orbs, glassmorphic avatar picker, security badges
+  * `DiscoveryScreen` — frosted glass header, 5-ring radar, glassmorphic device bubbles, desktop side panel
+  * `RadarPainter` — 5 concentric rings, 24 particle dots, sweep cone with gradient trail, pulsing centre
+  * `DeviceBubble` — BackdropFilter glassmorphism, platform icon badge, press scale animation
+  * `QrShowScreen` — dark surface QR card with glow, circular countdown timer, gradient toggle pills
+  * `QrScanScreen` — accent viewfinder corners, gradient scanning line, frosted torch toggle
+  * `SendScreen` — section headers with count badges, active indicator, desktop centering
+  * `ReceiveScreen` — gradient incoming request cards, accept/decline buttons
+  * `TransferCard` — dark surface card, gradient status chips, BLAKE3 verified badge
+  * `ChatScreen` — iMessage-style gradient bubbles, frosted input bar, E2E encrypted badge
+  * `LiveFolderScreen` — gradient "Add Folder" button, status glow dots, hover states
+  * `SettingsScreen` — iOS-grouped sections, gradient profile card, bottom sheet rename, CupertinoSwitch
+  * `BlinkBottomNav` — BackdropFilter frosted glass, 64px, active dot indicator
+  * `BlinkSidebar` — dark surface, active item with primary border, hover states
+* **Active work (wiring):**
   * Connect Onboarding persistence (name/avatar → SQLite)
   * Wire Radar UI to DiscoveryNotifier (live device bubbles)
   * Wire Transfer UI to TransferNotifier (real progress bars)
   * Wire QR Scanner UI to QrHandshakeService (scan → validate → derive → send)
+  * Wire File Explorer/Selection UI to transfer send flow
 
 ### M4: Advanced Sync — PENDING
 **Target:** Real-time persistence and complex use-cases.

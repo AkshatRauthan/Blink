@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 
-import '../../../core/theme/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/transfer_session.dart';
 import 'progress_bar.dart';
 
-/// A polished card showing the status and progress of a single [TransferSession].
 class TransferCard extends StatelessWidget {
   final TransferSession session;
 
@@ -16,7 +13,6 @@ class TransferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isSend = session.direction == TransferDirection.send;
     final fileCount = session.fileIds.length;
     final (statusLabel, statusColor) = _statusInfo(session.status);
@@ -24,36 +20,38 @@ class TransferCard extends StatelessWidget {
     final transferredStr = _formatBytes(session.transferredBytes);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: BlinkSpacing.md),
-      padding: const EdgeInsets.all(BlinkSpacing.md),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(BlinkRadius.lg),
+        color: BlinkColors.darkSurface,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          color: BlinkColors.darkHover.withValues(alpha: 0.3),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header row ──────────────────────────────
           Row(
             children: [
-              // Direction icon
               Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: (isSend ? BlinkColors.primary : BlinkColors.accent)
-                      .withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(BlinkRadius.sm),
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isSend
+                        ? [
+                            BlinkColors.primary.withValues(alpha: 0.15),
+                            BlinkColors.primary.withValues(alpha: 0.05),
+                          ]
+                        : [
+                            BlinkColors.accent.withValues(alpha: 0.15),
+                            BlinkColors.accent.withValues(alpha: 0.05),
+                          ],
+                  ),
                 ),
                 child: Icon(
                   isSend
@@ -63,37 +61,35 @@ class TransferCard extends StatelessWidget {
                   size: 18,
                 ),
               ),
-              const Gap(BlinkSpacing.sm),
-              // File info
+              const Gap(12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '$fileCount file${fileCount == 1 ? '' : 's'}',
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       '$transferredStr / $sizeStr',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.55),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              // Status chip
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: BlinkSpacing.sm,
-                  vertical: BlinkSpacing.xs,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(BlinkRadius.full),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -117,10 +113,10 @@ class TransferCard extends StatelessWidget {
                       ),
                     Text(
                       statusLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
+                      style: TextStyle(
                         color: statusColor,
-                        fontWeight: FontWeight.w600,
                         fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -128,45 +124,44 @@ class TransferCard extends StatelessWidget {
               ),
             ],
           ),
-          const Gap(BlinkSpacing.md),
-          // ── Progress bar ────────────────────────────
+          const Gap(14),
           TransferProgressBar(
             progress: session.progress,
             gradientColors: isSend
-                ? [BlinkColors.primary, BlinkColors.accent]
-                : [BlinkColors.accent, BlinkColors.mint],
+                ? [BlinkColors.primary, const Color(0xFF8B7BFF)]
+                : [BlinkColors.accent, BlinkColors.success],
           ),
-          const Gap(BlinkSpacing.xs),
-          // ── Percentage + action ─────────────────────
+          const Gap(8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${(session.progress * 100).toStringAsFixed(0)}%',
-                style: theme.textTheme.labelSmall?.copyWith(
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               if (session.status == TransferStatus.transferring)
                 Icon(
                   Icons.pause_circle_outline_rounded,
                   size: 18,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  color: Colors.white.withValues(alpha: 0.3),
                 ),
               if (session.status == TransferStatus.completed)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.verified_rounded,
-                        size: 14, color: BlinkColors.mint),
+                        size: 13, color: BlinkColors.success),
                     const Gap(4),
                     Text(
                       'BLAKE3 verified',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: BlinkColors.mint,
-                        fontWeight: FontWeight.w500,
+                      style: TextStyle(
+                        color: BlinkColors.success,
                         fontSize: 10,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -175,20 +170,20 @@ class TransferCard extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(duration: BlinkDurations.standard).slideY(
-          begin: 0.05,
-          duration: BlinkDurations.standard,
-          curve: BlinkCurves.standard,
+    ).animate().fadeIn(duration: 400.ms).slideY(
+          begin: 0.04,
+          duration: 400.ms,
+          curve: Curves.easeOutCubic,
         );
   }
 
   (String, Color) _statusInfo(TransferStatus status) => switch (status) {
-        TransferStatus.pending => ('Queued', BlinkColors.amber),
-        TransferStatus.connecting => ('Connecting', BlinkColors.amber),
+        TransferStatus.pending => ('Queued', BlinkColors.warning),
+        TransferStatus.connecting => ('Connecting', BlinkColors.warning),
         TransferStatus.transferring => ('Sending', BlinkColors.primary),
-        TransferStatus.paused => ('Paused', BlinkColors.amber),
-        TransferStatus.completed => ('Done', BlinkColors.mint),
-        TransferStatus.failed => ('Failed', BlinkColors.coral),
+        TransferStatus.paused => ('Paused', BlinkColors.warning),
+        TransferStatus.completed => ('Done', BlinkColors.success),
+        TransferStatus.failed => ('Failed', BlinkColors.error),
         TransferStatus.cancelled => ('Cancelled', Colors.grey),
       };
 

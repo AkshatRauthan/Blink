@@ -115,38 +115,68 @@
 
 ## Phase 4: UI Stitching & Feature Rewrites
 
-### 4.1 Onboarding screen
-- [ ] Connect pulsed logo glow and avatar picker UI to `OnboardingNotifier` and SQLite.
-- [ ] Navigation transition to Radar discovery.
+### 4.0 Logo & Branding — COMPLETE (April 25, 2026)
+- ✅ Created `assets/svg/logo/blink_logo.svg` — 128×128 lightning bolt with concentric gradient circles (#6C63FF → #00D9FF), white bolt with gradient stroke.
+- ✅ Created `assets/svg/logo/blink_logo_small.svg` — 32×32 compact variant for nav bars and favicons.
+- ✅ Updated `pubspec.yaml` with `assets/svg/logo/` asset path.
 - **Review/Comments:**
-  > 
+  > Lightning bolt symbolizes speed/instant transfer. Uses brand gradient for both the background circles and bolt stroke. Small variant strips the circles to just the bolt for compact spaces.
 
-### 4.2 Discovery / Radar UI
-- [ ] Render 4 concentric pulsing rings using custom `RadarPainter`.
-- [ ] Bind active connections from Phase 2 into `DeviceBubble` distribution around center.
+### 4.1 Complete UI Redesign — "Midnight Obsidian" Premium Dark — COMPLETE (April 25, 2026)
+- ✅ Rewrote **Onboarding Screen** — Ambient gradient orbs (AnimationController 8s repeat), pulsing logo glow (2500ms reverse repeat), glassmorphic avatar picker with camera badge, gradient CTA button with press scale animation, security badges (Offline, E2E, Cross-Platform), desktop-responsive at 800px breakpoint.
+- ✅ Rewrote **Discovery/Radar Screen** — Frosted glass header (BackdropFilter blur 20), 5-ring RadarPainter with particle dots (24 dots), sweep cone with gradient trail + tip glow, glassmorphic DeviceBubbles with backdrop blur, pulsing center avatar, status pill with scanning indicator, gradient "Select Files" button. Desktop layout: radar left + device list side panel (320px) with hover states.
+- ✅ Rewrote **RadarPainter** — 5 concentric rings (decreasing opacity), ambient radial glow, 24 ring dots that brighten near sweep line, gradient sweep cone (primary → accent), sweep line with tip glow, pulsing center glow. Accepts `pulseValue` and `deviceCount` params.
+- ✅ Rewrote **DeviceBubble** — BackdropFilter glassmorphism (sigma 12), platform icon badge (18px circle), press scale animation (0.92), gradient shadow glow (accent 0.2 + primary 0.1).
+- ✅ Rewrote **QR Show Screen** — Dark surface QR card with primary glow shadow, white QR with dark dots (circle modules), circular countdown timer (accent → error under 60s), gradient toggle pills (Show QR / Scan QR), regenerate button.
+- ✅ Rewrote **QR Scan Screen** — Accent viewfinder corners (2.5px stroke, 14px radius), gradient scanning line animation (2s repeat reverse), frosted torch toggle, dark 50% overlay, gradient toggle pills.
+- ✅ Rewrote **Send/Transfers Screen** — Section headers with count badges, active indicator chip with spinner, dark surface TransferCards, gradient direction icons, encryption footer.
+- ✅ Rewrote **TransferCard** — Dark surface card (#1A1A2E), gradient direction icon containers, status chips with spinners/check icons, BLAKE3 verified badge on completion.
+- ✅ Rewrote **Receive Screen** — Gradient incoming request cards (accent → primary), accept button with cyan gradient, decline with error border, section headers.
+- ✅ Rewrote **Chat Screen** — iMessage-style gradient sent bubbles (primary → #8B7BFF), dark surface received bubbles with border, time pill labels, frosted input bar with dark surface, E2E encrypted badge (green), attachment + send buttons.
+- ✅ Rewrote **Live Folders Screen** — Gradient "Add Folder" button with shadow, folder cards with status glow dots (green=watching, grey=paused), info banner with gradient background, hover states on desktop, close button with error tint.
+- ✅ Rewrote **Settings Screen** — iOS-grouped sections on dark surface, gradient profile card with initial avatar and press scale animation, CupertinoSwitch toggles, bottom sheet rename dialog (not AlertDialog), version badge ("Beta"), footer with small logo + "Privacy First" text.
+- ✅ Updated **BlinkBottomNav** — BackdropFilter frosted glass (sigma 24), 64px height, active dot indicator (4px purple circle with glow), all labels always visible, white text with varying opacity.
+- ✅ Updated **BlinkSidebar** — Dark surface background (#1A1A2E) with right border, active item with primary tint + subtle border, hover states (white 4% opacity), collapse button with hover feedback.
+- ✅ Updated **BlinkAdaptiveShell** — Mobile layout uses `extendBody: true` for content behind frosted nav.
+- ✅ Flutter analyzer: 0 errors, 0 warnings (13 info-level style hints only).
 - **Review/Comments:**
-  > 
+  > Complete visual overhaul of all 9 core screens + 5 sub-widgets. Design principles: true black OLED base (#0D0D12), no borders (hierarchy via background shifts), BackdropFilter glassmorphism on interactive surfaces, GestureDetector everywhere (no InkWell splash — iOS feel), AnimatedScale press feedback on all buttons, flutter_animate for staggered entrance animations. All screens are responsive with mobile (<800px) and desktop (≥800px) layouts. Linux build blocked by upstream flutter_webrtc plugin (missing libwebrtc headers), not a code issue.
+
+### 4.2 Onboarding Persistence
+- [ ] Connect avatar picker UI to `OnboardingNotifier.setAvatar()` and file picker.
+- [ ] Persist name/avatar to SQLite on `save()`.
+- [ ] Navigation transition to Radar discovery on completion.
+- **Review/Comments:**
+  > UI is complete. Backend persistence (SQLite write in `OnboardingNotifier.save()`) is still a TODO stub with a 300ms delay.
 
 ### 4.3 File Exploration and Selection UI
-- [ ] Create file exploration and selection UI via Stitch templates.
+- [ ] Create file exploration and selection UI via file_picker package.
 - [ ] Integrate UI with state management/providers (bridge with device discovery).
 - [ ] Implement backend logic for efficient directory indexing and file handling.
 - [ ] Optimize the UX for smooth scrolling, fast visual selection, and thumbnail generation of massive quantities of files.
 - **Review/Comments:**
   > 
 
-### 4.4 Transfer UI (Send/Receive)
-- [ ] Layout Active, Queued, and Completed file queues.
-- [ ] Render `TransferCard` showing granular file progress bar tracking isolate bytes.
-- [ ] Implement Accept/Decline request flows for receiver.
+### 4.4 Wire Transfer UI to Live Backend
+- [ ] Wire "Select Files" button on Discovery to file picker → send flow.
+- [ ] Wire device bubble tap → send screen with pre-selected target device.
+- [ ] Wire Accept/Decline buttons on Receive screen to TransferManager.
+- [ ] Wire real-time progress bars to TransferNotifier stream.
 - **Review/Comments:**
-  > 
+  > Transfer UI is visually complete. Wiring to live TransferManager/TransferNotifier is the next step.
 
-### 4.5 In-Transfer Chat Engine
-- [ ] Create lightweight TCP/HTTP message pass over active session channel.
-- [ ] Hook UI layout for bubble chat overlays.
+### 4.5 Wire QR Scanner to Handshake Flow
+- [ ] Wire MobileScanner `onDetect` → `QrHandshakeService.validateAndConsume()`.
+- [ ] On successful validation → derive session key → navigate to send screen.
+- [ ] Display pairing success/failure feedback.
 - **Review/Comments:**
-  > 
+  > QR Show/Scan screens are visually complete. Backend flow (QrHandshakeService) is fully implemented. Just needs UI↔backend wiring.
+
+### 4.6 In-Transfer Chat Engine
+- [ ] Create lightweight TCP/HTTP message pass over active session channel.
+- [ ] Hook chat UI to live message stream.
+- **Review/Comments:**
+  > Chat UI is visually complete with iMessage-style design. ChatNotifier currently stores messages locally only.
 
 ## Phase 5: Advanced Synchronization Modes
 
