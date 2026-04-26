@@ -44,7 +44,7 @@ class IsarService {
 
     final database = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -125,6 +125,13 @@ class IsarService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE app_settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
     Log.i(
       'Schema created v$version',
       source: LogSource.storage,
@@ -133,8 +140,16 @@ class IsarService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    Log.w(
-      'Schema upgrade $oldVersion -> $newVersion',
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
+    }
+    Log.i(
+      'Schema upgraded $oldVersion -> $newVersion',
       source: LogSource.storage,
       component: 'SQLite',
     );

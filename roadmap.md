@@ -78,12 +78,13 @@
   * `SettingsScreen` — iOS-grouped sections, gradient profile card, bottom sheet rename, CupertinoSwitch
   * `BlinkBottomNav` — BackdropFilter frosted glass, 64px, active dot indicator
   * `BlinkSidebar` — dark surface, active item with primary border, hover states
+* **What shipped (wiring):**
+  * ✅ Onboarding persistence — name/avatar → SQLite via `SettingsRepository`, GoRouter guard, loading splash, centre avatar initial on Discovery
+  * ✅ Transfer UI wiring — file picker → device selection → TransferManager.sendFiles, Accept/Decline for incoming, auto-start receiver, real-time progress via ActiveTransfersNotifier
+  * ✅ QR Scanner wiring — MobileScanner → validateAndConsume → X25519 ECDH session key derivation, success/failure feedback overlay
 * **Active work (wiring):**
-  * Connect Onboarding persistence (name/avatar → SQLite)
-  * Wire Radar UI to DiscoveryNotifier (live device bubbles)
-  * Wire Transfer UI to TransferNotifier (real progress bars)
-  * Wire QR Scanner UI to QrHandshakeService (scan → validate → derive → send)
-  * Wire File Explorer/Selection UI to transfer send flow
+  * File Explorer/Selection UI (dedicated browsing experience)
+  * In-Transfer Chat Engine
 
 ### M4: Advanced Sync — PENDING
 **Target:** Real-time persistence and complex use-cases.

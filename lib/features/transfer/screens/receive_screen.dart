@@ -91,7 +91,15 @@ class ReceiveScreen extends ConsumerWidget {
                           _SectionHeader(label: 'Incoming Requests'),
                           const Gap(8),
                           for (final s in pending)
-                            _IncomingRequestCard(session: s),
+                            _IncomingRequestCard(
+                              session: s,
+                              onAccept: () => ref
+                                  .read(activeTransfersProvider.notifier)
+                                  .acceptTransfer(s.sessionId),
+                              onDecline: () => ref
+                                  .read(activeTransfersProvider.notifier)
+                                  .declineTransfer(s.sessionId),
+                            ),
                           const Gap(16),
                         ],
                         if (active.isNotEmpty) ...[
@@ -181,7 +189,13 @@ class _EmptyState extends StatelessWidget {
 
 class _IncomingRequestCard extends StatelessWidget {
   final TransferSession session;
-  const _IncomingRequestCard({required this.session});
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  const _IncomingRequestCard({
+    required this.session,
+    required this.onAccept,
+    required this.onDecline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +263,7 @@ class _IncomingRequestCard extends StatelessWidget {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () {/* decline */},
+                  onTap: onDecline,
                   child: Container(
                     height: 42,
                     decoration: BoxDecoration(
@@ -275,7 +289,7 @@ class _IncomingRequestCard extends StatelessWidget {
               const Gap(10),
               Expanded(
                 child: GestureDetector(
-                  onTap: () {/* accept */},
+                  onTap: onAccept,
                   child: Container(
                     height: 42,
                     decoration: BoxDecoration(

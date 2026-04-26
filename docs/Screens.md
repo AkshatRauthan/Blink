@@ -44,24 +44,28 @@
 | **File** | `lib/features/onboarding/screens/onboarding_screen.dart` |
 | **Route** | `/onboarding` (`AppRoutes.onboarding`) |
 | **Provider** | `onboardingNotifierProvider` |
-| **State** | `AsyncValue<({String name, String? avatarPath})>` |
+| **State** | `OnboardingState { name, avatarPath, isSaving }` |
 | **Stitch Screen** | `e7644885a1d64e8782c1801285c42e6a` |
 
 ### Description
-First-launch screen where users set a display name and optional avatar. Designed with an iOS-inspired aesthetic featuring a pulsing logo glow, animated gradient background, and a staggered entrance animation sequence.
+First-launch screen where users set a display name and optional avatar. Designed with an iOS-inspired aesthetic featuring a pulsing logo glow, animated gradient background, and a staggered entrance animation sequence. Persists onboarding data to SQLite and guards all other routes until completed.
 
 ### Key UI Elements
 - **Ambient gradient orbs** — Two large radial gradients (primary + accent) positioned behind content for atmospheric depth
 - **Pulsing logo glow** — `AnimationController` driving a pulsing purple/accent glow behind the Blink SVG logo (`blink_logo.svg`)
-- **Glassmorphic avatar picker** — Circular avatar with `BackdropFilter` blur, camera overlay icon with primary-tinted background; taps trigger `setAvatar()` notifier action
-- **Name input** — Full-width `TextField` on dark surface (`#1A1A2E`) with rounded container styling and subtle border
-- **CTA button** — Full-width gradient pill button (`primary → #8B7BFF`) with `AnimatedScale` press animation (0.96) and glow shadow
-- **Security badges** — Row of badges showing "E2E Encrypted", "No Account Needed", "100% Offline" with subtle icon + text
+- **Avatar picker** — Circular avatar (96px) with gradient border, camera badge overlay; taps trigger `file_picker` (`FileType.image`), selected image shown via `Image.file()`, falls back to person icon
+- **Name input** — Full-width `TextFormField` on dark surface (`#1A1A2E`) with rounded container styling and subtle border, validates non-empty
+- **CTA button** — Full-width gradient pill button (`primary → #8B7BFF`) with `AnimatedScale` press animation (0.97) and glow shadow; shows `CircularProgressIndicator` when `isSaving`
+- **Security badges** — Row of badges showing "100% Offline", "E2E Encrypted", "Cross-Platform" with subtle icon + text
 - **Entrance animations** — `flutter_animate` fadeIn + slideY staggered per section
-- **Desktop responsive** — At ≥800px, content centers with max width constraint
+- **Desktop responsive** — At ≥800px, content centers with max width constraint (420px)
+
+### Persistence
+- `OnboardingNotifier.save()` calls `SettingsNotifier.completeOnboarding()` which persists displayName, avatarPath, and `onboarded=true` to SQLite `app_settings` table
+- GoRouter redirect guard in `app.dart`: unonboarded users are redirected to `/onboarding`, onboarded users are redirected away from `/onboarding` to `/`
 
 ### Navigation
-- **On "Get Started" tap** → `context.go(AppRoutes.discovery)`
+- **On "Get Started" tap** → validates form → `save()` → `context.go(AppRoutes.discovery)`
 
 ---
 
@@ -95,12 +99,19 @@ Dark atmospheric radar screen that discovers nearby devices. Forces dark theme v
 | `_CentreAvatar` | inline in `discovery_screen.dart` | Pulsing gradient avatar in radar centre |
 | `_BottomControls` | inline in `discovery_screen.dart` | Status pill + select files button |
 | `_DeviceListPanel` | inline in `discovery_screen.dart` | Desktop-only side panel (320px) listing devices with hover states |
+| `_DeviceSelectionSheet` | inline in `discovery_screen.dart` | Bottom sheet for choosing which device to send to (shown when multiple devices nearby) |
+
+### Transfer Flow (wired)
+- **Select Files button** → `file_picker` (allowMultiple, FileType.any) → if 1 device, auto-send; if multiple, show `_DeviceSelectionSheet` → start transfer via `TransferNotifier.startSend()` → navigate to `/transfers`
+- **Device bubble tap** → `file_picker` → start transfer to that device → navigate to `/transfers`
+- **Device list tile tap** (desktop) → same as bubble tap
+- Session key: random 256-bit key per transfer (replaced by QR-derived X25519 key in Phase 4.5)
 
 ### Navigation
 - **QR icon** → `AppRoutes.qrScan`
-- **Settings gear** → `AppRoutes.settings`
-- **Device bubble tap** → `AppRoutes.send` (for sending files to that device)
-- **Select Files button** → File picker flow → `AppRoutes.send`
+- **QR show icon** → `AppRoutes.qrShow`
+- **Device bubble tap** → file picker → transfer → `AppRoutes.transfers`
+- **Select Files button** → file picker → device selection → transfer → `AppRoutes.transfers`
 
 ---
 
@@ -111,7 +122,7 @@ Dark atmospheric radar screen that discovers nearby devices. Forces dark theme v
 | **File** | `lib/features/pairing/screens/qr_show_screen.dart` |
 | **Route** | `/qr-show` (`AppRoutes.qrShow`) |
 | **Provider** | `pairingNotifierProvider` |
-| **State** | `AsyncValue<String?>` (QR string or null) |
+| **State** | `PairingState { qrString, lastPairing, error, isLoading }` |
 | **Stitch Screen** | `010361a38b3544f99221564fdcd1c899` |
 
 ### Description
@@ -138,23 +149,26 @@ Displays the local device's pairing QR code for the remote device to scan. The Q
 | **File** | `lib/features/pairing/screens/qr_scan_screen.dart` |
 | **Route** | `/qr-scan` (`AppRoutes.qrScan`) |
 | **Provider** | `pairingNotifierProvider` |
-| **State** | `AsyncValue<String?>` |
+| **State** | `PairingState { qrString, lastPairing, error, isLoading }` |
 | **Stitch Screen** | `bc1b72bd074a4bf196e53400da767396` |
 
 ### Description
-Camera-based QR scanner for pairing with a remote device. Uses `MobileScanner` with a custom viewfinder overlay featuring cyan corner brackets and an animated scanning line.
+Camera-based QR scanner for pairing with a remote device. Uses `MobileScanner` with a custom viewfinder overlay featuring cyan corner brackets and an animated scanning line. On scan, validates Ed25519 signature, derives X25519 ECDH session key, and shows success/failure feedback.
 
 ### Key UI Elements
 - **Camera feed** — `MobileScanner` widget filling the screen, with 50% dark overlay
 - **Viewfinder** — `_ViewfinderPainter` (CustomPainter): 4 accent-colored corner brackets with quadratic bezier rounded corners, 2.5px stroke width, 260×260 px
-- **Scanning line** — `_ScanningLine`: animated horizontal gradient line (accent → transparent) that sweeps vertically inside viewfinder using `AnimationController` with 2s repeat + reverse
-- **Frosted torch toggle** — Circular `BackdropFilter` blurred button (sigma 10) toggling flashlight on/off
+- **Scanning line** — `_ScanningLine`: animated horizontal gradient line (accent → transparent) that sweeps vertically inside viewfinder using `AnimationController` with 2s repeat + reverse; hidden when feedback overlay is shown
+- **Feedback overlay** — `_ScanFeedback`: centered dark surface card (0.95 alpha) with success (green check) or failure (red X) icon, message text, bordered with success/error color. Success auto-pops after 1.2s, failure resets scanner after 2s
+- **Torch toggle** — Circular button toggling flashlight on/off, accent-tinted when enabled
 - **Encryption label** — Shield icon + "Offline encrypted exchange" text
 - **Gradient toggle pills** — `_PairingToggle`: "Show QR / Scan QR" gradient pills matching QR Show screen style
 
 ### Behaviour
-- On barcode detect → `handleScannedQr(code)` → `context.pop()`
-- One-shot scan (prevents duplicate processing via `_scanned` flag)
+- On barcode detect → `handleScannedQr(code)` → validates Ed25519 signature → generates ephemeral X25519 keypair → derives session key via ECDH → returns `PairingResult`
+- Success: shows green check overlay (1.2s) → `context.pop(result)` returning `PairingResult` to caller
+- Failure: shows error overlay with friendly message (expired / invalid / already used) → resets scanner after 2s for retry
+- One-shot scan (prevents duplicate processing via `_scanned` flag, reset on failure)
 
 ### Navigation
 - **"Show QR" toggle** → `context.pushReplacement(AppRoutes.qrShow)`
@@ -202,10 +216,10 @@ Active outbound file transfers screen. Categorises transfers into In Progress, Q
 | **Stitch Screen** | `752074d96b414e74b8483b85954e0629` |
 
 ### Description
-Incoming file transfers screen. Features incoming request cards with Accept/Decline actions, plus active receiving and completed sections.
+Incoming file transfers screen. Features incoming request cards with Accept/Decline actions, plus active receiving and completed sections. Accept/Decline are wired to `TransferManager.acceptTransfer()` / `declineTransfer()` via `ActiveTransfersNotifier`.
 
 ### Key UI Elements
-- **Incoming request card** — `_IncomingRequestCard`: gradient background (accent 0.08 → primary 0.04), file info with device name, "Accept" button with cyan gradient (`#00D9FF → #00B4D8`), "Decline" button with error border outline. Shows for `TransferStatus.pending` sessions.
+- **Incoming request card** — `_IncomingRequestCard`: gradient background (accent 0.08 → primary 0.04), file info with file count + total size, "Accept" button (cyan gradient `#00D9FF → #00B8D9`) calls `acceptTransfer(sessionId)` → transitions to transferring, "Decline" button (error border outline) calls `declineTransfer(sessionId)` → cancels session + deletes received files. Shows for `TransferStatus.pending` sessions.
 - **Active receiving** — Standard `TransferCard` widgets for `TransferStatus.transferring` sessions
 - **Completed section** — Standard `TransferCard` with BLAKE3 verified badge
 - **Empty state** — Circular accent-tinted download icon with descriptive text, animated fadeIn
@@ -273,14 +287,14 @@ Auto-sync screen where users watch local folders for changes that automatically 
 | **File** | `lib/features/settings/screens/settings_screen.dart` |
 | **Route** | `/settings` (`AppRoutes.settings`) |
 | **Provider** | `settingsNotifierProvider` |
-| **State** | `AppSettings { displayName, bleEnabled, compressionEnabled, darkMode }` |
+| **State** | `AsyncValue<AppSettings> { displayName, avatarPath, bleEnabled, compressionEnabled, darkMode, onboarded }` |
 | **Stitch Screen** | `e10e369e6f64495e84f113d51f62d9ab` |
 
 ### Description
-iOS-style grouped settings screen with a profile card, toggle switches (CupertinoSwitch), and info tiles organised into labelled sections.
+iOS-style grouped settings screen with a profile card, toggle switches (CupertinoSwitch), and info tiles organised into labelled sections. State is `AsyncValue<AppSettings>` — shows loading spinner until settings load from SQLite.
 
 ### Key UI Elements
-- **Profile card** — `_ProfileCard`: gradient background (primary 0.1 → accent 0.05) with primary border (0.15 alpha), circular avatar (gradient `primary → #8B7BFF` with glow shadow), display name, "Tap to edit display name" subtitle, chevron. Press animation (`AnimatedScale` 0.98).
+- **Profile card** — `_ProfileCard`: gradient background (primary 0.1 → accent 0.05) with primary border (0.15 alpha), circular avatar (gradient `primary → #8B7BFF` with glow shadow) showing user initial letter, display name, "Tap to edit display name" subtitle, chevron. Press animation (`AnimatedScale` 0.98).
 - **Section groups** — `_buildSection()`: `SliverToBoxAdapter` with dark surface container (`#1A1A2E`), clipped with antiAlias, subtle border, dividers between children. 5 sections:
   - **GENERAL** — Dark Mode toggle
   - **TRANSFER** — LZ4 Compression toggle
@@ -389,17 +403,20 @@ Glassmorphic discovered device indicator on the radar with:
 
 All routes defined in `lib/app.dart` → `AppRoutes`:
 
-| Route | Path | Screen |
-|---|---|---|
-| `onboarding` | `/onboarding` | `OnboardingScreen` |
-| `discovery` | `/discovery` | `DiscoveryScreen` |
-| `qrShow` | `/qr-show` | `QrShowScreen` |
-| `qrScan` | `/qr-scan` | `QrScanScreen` |
-| `send` | `/send` | `SendScreen` |
-| `receive` | `/receive` | `ReceiveScreen` |
-| `chat` | `/chat` | `ChatScreen` |
-| `liveFolders` | `/live-folders` | `LiveFolderScreen` |
-| `settings` | `/settings` | `SettingsScreen` |
+| Route | Path | Screen | Shell |
+|---|---|---|---|
+| `onboarding` | `/onboarding` | `OnboardingScreen` | Standalone (no nav) |
+| `discovery` | `/` | `DiscoveryScreen` | `_MainShell` (bottom nav / sidebar) |
+| `transfers` | `/transfers` | `SendScreen` | `_MainShell` |
+| `chat` | `/chat` | `ChatScreen` | `_MainShell` |
+| `liveFolder` | `/live-folder` | `LiveFolderScreen` | `_MainShell` |
+| `settings` | `/settings` | `SettingsScreen` | `_MainShell` |
+| `qrShow` | `/qr/show` | `QrShowScreen` | Standalone |
+| `qrScan` | `/qr/scan` | `QrScanScreen` | Standalone |
+| `send` | `/transfer/send` | `SendScreen` | Standalone |
+| `receive` | `/transfer/receive` | `ReceiveScreen` | Standalone |
+
+**GoRouter redirect guard:** If `settings.onboarded == false`, all routes redirect to `/onboarding`. If onboarded, `/onboarding` redirects to `/`.
 
 ---
 

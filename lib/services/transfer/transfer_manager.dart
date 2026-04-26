@@ -213,6 +213,7 @@ class TransferManager {
     if (server.isRunning) return;
     await server.start();
 
+    server.onSessionBegin.listen(_handleIncomingBegin);
     server.onChunk.listen(_handleReceiverChunk);
 
     Log.i(
@@ -222,10 +223,32 @@ class TransferManager {
     );
   }
 
+  void _handleIncomingBegin(SessionBeginEvent event) {
+    if (_sessions.containsKey(event.sessionId)) return;
+
+    final session = TransferSession(
+      sessionId: event.sessionId,
+      remoteDeviceId: event.senderDeviceId,
+      direction: TransferDirection.receive,
+      status: TransferStatus.pending,
+      totalBytes: event.totalBytes,
+      startedAt: DateTime.now(),
+    );
+
+    _sessions[event.sessionId] = session;
+    _progressController.add(session);
+
+    Log.i(
+      'Incoming transfer ${event.sessionId}: ${event.fileCount} files, '
+      '${_formatBytes(event.totalBytes)} from ${event.senderDeviceId}',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
+  }
+
   void _handleReceiverChunk(ChunkEvent event) {
     var session = _sessions[event.sessionId];
 
-    // Auto-create session tracking on first chunk if we don't have it
     if (session == null) {
       session = TransferSession(
         sessionId: event.sessionId,
@@ -238,16 +261,61 @@ class TransferManager {
       _sessions[event.sessionId] = session;
     }
 
+    if (session.status == TransferStatus.cancelled) return;
+
+    TransferStatus newStatus;
+    if (event.sessionComplete) {
+      newStatus = TransferStatus.completed;
+    } else if (session.status == TransferStatus.pending) {
+      newStatus = TransferStatus.pending;
+    } else {
+      newStatus = TransferStatus.transferring;
+    }
+
     final updated = session.copyWith(
-      status: event.sessionComplete
-          ? TransferStatus.completed
-          : TransferStatus.transferring,
+      status: newStatus,
       transferredBytes: event.receivedBytes,
       completedAt: event.sessionComplete ? DateTime.now() : null,
     );
 
     _sessions[event.sessionId] = updated;
     _progressController.add(updated);
+  }
+
+  /// Accepts an incoming pending transfer (transitions to transferring).
+  void acceptTransfer(String sessionId) {
+    final session = _sessions[sessionId];
+    if (session == null || session.status != TransferStatus.pending) return;
+
+    final updated = session.copyWith(status: TransferStatus.transferring);
+    _sessions[sessionId] = updated;
+    _progressController.add(updated);
+    _repo.saveSession(updated);
+
+    Log.i(
+      'Session $sessionId accepted',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
+  }
+
+  /// Declines an incoming transfer (cancels and deletes received files).
+  Future<void> declineTransfer(String sessionId) async {
+    final session = _sessions[sessionId];
+    if (session == null) return;
+
+    final cancelled = session.copyWith(status: TransferStatus.cancelled);
+    _sessions[sessionId] = cancelled;
+    _progressController.add(cancelled);
+
+    await HttpServerService.instance.cancelSession(sessionId);
+    await _repo.saveSession(cancelled);
+
+    Log.i(
+      'Session $sessionId declined',
+      source: LogSource.process,
+      component: 'TransferManager',
+    );
   }
 
   /// Stops the receiver HTTP server.

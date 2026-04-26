@@ -1,46 +1,119 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../data/repositories/settings_repository.dart';
 
 class AppSettings {
   final String displayName;
+  final String? avatarPath;
   final bool bleEnabled;
   final bool compressionEnabled;
   final bool darkMode;
+  final bool onboarded;
 
   const AppSettings({
     this.displayName = '',
+    this.avatarPath,
     this.bleEnabled = true,
     this.compressionEnabled = true,
-    this.darkMode = false,
+    this.darkMode = true,
+    this.onboarded = false,
   });
 
   AppSettings copyWith({
     String? displayName,
+    String? avatarPath,
+    bool clearAvatar = false,
     bool? bleEnabled,
     bool? compressionEnabled,
     bool? darkMode,
+    bool? onboarded,
   }) =>
       AppSettings(
         displayName: displayName ?? this.displayName,
+        avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
         bleEnabled: bleEnabled ?? this.bleEnabled,
         compressionEnabled: compressionEnabled ?? this.compressionEnabled,
         darkMode: darkMode ?? this.darkMode,
+        onboarded: onboarded ?? this.onboarded,
       );
 }
 
-class SettingsNotifier extends Notifier<AppSettings> {
+class SettingsNotifier extends AsyncNotifier<AppSettings> {
+  static const _kDisplayName = 'display_name';
+  static const _kAvatarPath = 'avatar_path';
+  static const _kBleEnabled = 'ble_enabled';
+  static const _kCompressionEnabled = 'compression_enabled';
+  static const _kDarkMode = 'dark_mode';
+  static const _kOnboarded = 'onboarded';
+
+  SettingsRepository get _repo => SettingsRepository.instance;
+
   @override
-  AppSettings build() => const AppSettings();
+  Future<AppSettings> build() async {
+    final all = await _repo.getAll();
+    return AppSettings(
+      displayName: all[_kDisplayName] ?? '',
+      avatarPath: all[_kAvatarPath],
+      bleEnabled: (all[_kBleEnabled] ?? '1') == '1',
+      compressionEnabled: (all[_kCompressionEnabled] ?? '1') == '1',
+      darkMode: (all[_kDarkMode] ?? '1') == '1',
+      onboarded: (all[_kOnboarded] ?? '0') == '1',
+    );
+  }
 
-  void setDisplayName(String name) =>
-      state = state.copyWith(displayName: name);
+  Future<void> setDisplayName(String name) async {
+    await _repo.setString(_kDisplayName, name);
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(displayName: name));
+  }
 
-  void setBleEnabled(bool v) => state = state.copyWith(bleEnabled: v);
+  Future<void> setAvatarPath(String? path) async {
+    if (path != null) {
+      await _repo.setString(_kAvatarPath, path);
+    }
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(avatarPath: path));
+  }
 
-  void setCompressionEnabled(bool v) =>
-      state = state.copyWith(compressionEnabled: v);
+  Future<void> setBleEnabled(bool v) async {
+    await _repo.setBool(_kBleEnabled, v);
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(bleEnabled: v));
+  }
 
-  void setDarkMode(bool v) => state = state.copyWith(darkMode: v);
+  Future<void> setCompressionEnabled(bool v) async {
+    await _repo.setBool(_kCompressionEnabled, v);
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(compressionEnabled: v));
+  }
+
+  Future<void> setDarkMode(bool v) async {
+    await _repo.setBool(_kDarkMode, v);
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(darkMode: v));
+  }
+
+  Future<void> completeOnboarding({
+    required String displayName,
+    String? avatarPath,
+  }) async {
+    await _repo.setString(_kDisplayName, displayName);
+    if (avatarPath != null) {
+      await _repo.setString(_kAvatarPath, avatarPath);
+    }
+    await _repo.setBool(_kOnboarded, true);
+    state = AsyncData(AppSettings(
+      displayName: displayName,
+      avatarPath: avatarPath,
+      bleEnabled: state.value?.bleEnabled ?? true,
+      compressionEnabled: state.value?.compressionEnabled ?? true,
+      darkMode: state.value?.darkMode ?? true,
+      onboarded: true,
+    ));
+  }
 }
 
 final settingsNotifierProvider =
-    NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+    AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);

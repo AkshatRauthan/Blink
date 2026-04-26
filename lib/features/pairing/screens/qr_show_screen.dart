@@ -49,7 +49,9 @@ class _QrShowScreenState extends ConsumerState<QrShowScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pairingState = ref.watch(pairingNotifierProvider);
+    final pairing = ref.watch(pairingNotifierProvider);
+    final qrString = pairing.qrString;
+    final qrError = pairing.error;
     final isExpiring = _secondsRemaining < 60;
 
     return Scaffold(
@@ -131,18 +133,8 @@ class _QrShowScreenState extends ConsumerState<QrShowScreen> {
                         ),
                         child: Column(
                           children: [
-                            pairingState.when(
-                              loading: () => const SizedBox(
-                                width: 220,
-                                height: 220,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: BlinkColors.primary,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                              error: (e, _) => SizedBox(
+                            if (qrError != null)
+                              SizedBox(
                                 width: 220,
                                 height: 220,
                                 child: Center(
@@ -153,7 +145,7 @@ class _QrShowScreenState extends ConsumerState<QrShowScreen> {
                                           color: BlinkColors.error, size: 40),
                                       const Gap(8),
                                       Text(
-                                        'Error generating QR',
+                                        qrError,
                                         style: TextStyle(
                                           color: Colors.white.withValues(alpha: 0.5),
                                           fontSize: 14,
@@ -162,40 +154,40 @@ class _QrShowScreenState extends ConsumerState<QrShowScreen> {
                                     ],
                                   ),
                                 ),
+                              )
+                            else if (qrString != null)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: QrImageView(
+                                  data: qrString,
+                                  version: QrVersions.auto,
+                                  size: 200,
+                                  eyeStyle: const QrEyeStyle(
+                                    eyeShape: QrEyeShape.circle,
+                                    color: Color(0xFF1A1A2E),
+                                  ),
+                                  dataModuleStyle: const QrDataModuleStyle(
+                                    dataModuleShape: QrDataModuleShape.circle,
+                                    color: Color(0xFF1A1A2E),
+                                  ),
+                                  backgroundColor: Colors.white,
+                                ),
+                              )
+                            else
+                              const SizedBox(
+                                width: 220,
+                                height: 220,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: BlinkColors.primary,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
                               ),
-                              data: (qrString) => qrString != null
-                                  ? Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: QrImageView(
-                                        data: qrString,
-                                        version: QrVersions.auto,
-                                        size: 200,
-                                        eyeStyle: const QrEyeStyle(
-                                          eyeShape: QrEyeShape.circle,
-                                          color: Color(0xFF1A1A2E),
-                                        ),
-                                        dataModuleStyle: const QrDataModuleStyle(
-                                          dataModuleShape: QrDataModuleShape.circle,
-                                          color: Color(0xFF1A1A2E),
-                                        ),
-                                        backgroundColor: Colors.white,
-                                      ),
-                                    )
-                                  : const SizedBox(
-                                      width: 220,
-                                      height: 220,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          color: BlinkColors.primary,
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                            ),
                             const Gap(16),
                             Row(
                               mainAxisSize: MainAxisSize.min,

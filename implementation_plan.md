@@ -142,12 +142,12 @@
 - **Review/Comments:**
   > Complete visual overhaul of all 9 core screens + 5 sub-widgets. Design principles: true black OLED base (#0D0D12), no borders (hierarchy via background shifts), BackdropFilter glassmorphism on interactive surfaces, GestureDetector everywhere (no InkWell splash — iOS feel), AnimatedScale press feedback on all buttons, flutter_animate for staggered entrance animations. All screens are responsive with mobile (<800px) and desktop (≥800px) layouts. Linux build blocked by upstream flutter_webrtc plugin (missing libwebrtc headers), not a code issue.
 
-### 4.2 Onboarding Persistence
-- [ ] Connect avatar picker UI to `OnboardingNotifier.setAvatar()` and file picker.
-- [ ] Persist name/avatar to SQLite on `save()`.
-- [ ] Navigation transition to Radar discovery on completion.
+### 4.2 Onboarding Persistence — COMPLETE (April 26, 2026)
+- ✅ Connect avatar picker UI to `OnboardingNotifier.setAvatar()` and file picker.
+- ✅ Persist name/avatar to SQLite on `save()`.
+- ✅ Navigation transition to Radar discovery on completion.
 - **Review/Comments:**
-  > UI is complete. Backend persistence (SQLite write in `OnboardingNotifier.save()`) is still a TODO stub with a 300ms delay.
+  > Full onboarding persistence pipeline implemented. SQLite `app_settings` table added (schema v1→v2 with migration). New `SettingsRepository` singleton with key-value get/set. `SettingsNotifier` rewritten from `Notifier` to `AsyncNotifier<AppSettings>` loading all settings from DB on init. `OnboardingNotifier.save()` calls `completeOnboarding()` which persists displayName, avatarPath, and onboarded flag. GoRouter redirect guard prevents main app access before onboarding. Loading splash shown while async settings load. Avatar picker uses `file_picker ^10.3.10`. Discovery screen centre avatar shows user's initial letter. 0 errors, 0 warnings, 18/18 tests pass.
 
 ### 4.3 File Exploration and Selection UI
 - [ ] Create file exploration and selection UI via file_picker package.
@@ -157,20 +157,20 @@
 - **Review/Comments:**
   > 
 
-### 4.4 Wire Transfer UI to Live Backend
-- [ ] Wire "Select Files" button on Discovery to file picker → send flow.
-- [ ] Wire device bubble tap → send screen with pre-selected target device.
-- [ ] Wire Accept/Decline buttons on Receive screen to TransferManager.
-- [ ] Wire real-time progress bars to TransferNotifier stream.
+### 4.4 Wire Transfer UI to Live Backend — COMPLETE (April 26, 2026)
+- ✅ Wire "Select Files" button on Discovery to file picker → send flow.
+- ✅ Wire device bubble tap → send screen with pre-selected target device.
+- ✅ Wire Accept/Decline buttons on Receive screen to TransferManager.
+- ✅ Wire real-time progress bars to TransferNotifier stream.
 - **Review/Comments:**
-  > Transfer UI is visually complete. Wiring to live TransferManager/TransferNotifier is the next step.
+  > Full UI↔backend wiring implemented. Discovery "Select Files" opens file_picker (allowMultiple, any type), then shows device selection bottom sheet (_DeviceSelectionSheet) if multiple devices nearby, or auto-sends if only one. Device bubble tap opens file picker then starts transfer directly to that device. Transfer uses a random 256-bit session key (replaced by QR-derived X25519 key in Phase 4.5). HttpServerService now emits `onSessionBegin` stream; TransferManager creates incoming sessions in `pending` state for Accept/Decline UI. Accept transitions to `transferring`, Decline cancels and deletes received files via `cancelSession()`. ActiveTransfersNotifier auto-starts the HTTP receiver server on build. Progress flows: HttpServerService → ChunkEvent → TransferManager.onProgress → ActiveTransfersNotifier → TransferCard UI. 0 errors, 0 warnings, 18/18 tests pass.
 
-### 4.5 Wire QR Scanner to Handshake Flow
-- [ ] Wire MobileScanner `onDetect` → `QrHandshakeService.validateAndConsume()`.
-- [ ] On successful validation → derive session key → navigate to send screen.
-- [ ] Display pairing success/failure feedback.
+### 4.5 Wire QR Scanner to Handshake Flow — COMPLETE (April 26, 2026)
+- ✅ Wire MobileScanner `onDetect` → `QrHandshakeService.validateAndConsume()`.
+- ✅ On successful validation → derive session key → navigate to send screen.
+- ✅ Display pairing success/failure feedback.
 - **Review/Comments:**
-  > QR Show/Scan screens are visually complete. Backend flow (QrHandshakeService) is fully implemented. Just needs UI↔backend wiring.
+  > Full QR handshake flow wired. PairingNotifier rewritten with `PairingState` (qrString, lastPairing, error, isLoading) + `PairingResult` (remotePublicKeyBase64, sessionKey). Scanner: `handleScannedQr()` validates Ed25519 signature via `QrHandshakeService.validateAndConsume()`, generates ephemeral X25519 keypair, derives 256-bit session key via ECDH (`deriveSharedKey`), stores `PairingResult`. QR Scan screen shows success overlay (green check, 1.2s delay) or failure overlay (red X, friendly error message, resets scanner after 2s). QR Show screen updated from `AsyncValue<String?>` to `PairingState` — renders qrString directly. 0 errors, 0 warnings, 18/18 tests pass.
 
 ### 4.6 In-Transfer Chat Engine
 - [ ] Create lightweight TCP/HTTP message pass over active session channel.

@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,8 +11,11 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/device.dart';
+import '../../settings/providers/settings_provider.dart';
+import '../../transfer/providers/transfer_provider.dart';
 import '../providers/discovery_provider.dart';
 import '../widgets/device_bubble.dart';
 import '../widgets/radar_painter.dart';
@@ -45,6 +50,74 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     _radarController.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  Future<List<String>?> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    return result.files
+        .where((f) => f.path != null)
+        .map((f) => f.path!)
+        .toList();
+  }
+
+  Future<void> _pickFilesAndSendTo(Device device) async {
+    final filePaths = await _pickFiles();
+    if (filePaths == null || filePaths.isEmpty || !mounted) return;
+    _startTransfer(filePaths, device);
+  }
+
+  Future<void> _pickFilesAndChooseDevice(List<Device> devices) async {
+    final filePaths = await _pickFiles();
+    if (filePaths == null || filePaths.isEmpty || !mounted) return;
+
+    if (devices.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No devices nearby. Files will be queued.'),
+          backgroundColor: BlinkColors.darkSurface,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (devices.length == 1) {
+      _startTransfer(filePaths, devices.first);
+      return;
+    }
+
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<Device>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _DeviceSelectionSheet(devices: devices),
+    );
+
+    if (selected != null && mounted) {
+      _startTransfer(filePaths, selected);
+    }
+  }
+
+  void _startTransfer(List<String> filePaths, Device device) {
+    final sessionKey = Uint8List.fromList(
+      List.generate(32, (_) => Random.secure().nextInt(256)),
+    );
+
+    ref.read(transferNotifierProvider.notifier).startSend(
+      filePaths: filePaths,
+      remoteDeviceId: device.deviceId,
+      remoteIp: device.lastKnownIp ?? '',
+      remotePort: device.lastKnownPort ?? AppConstants.transferPort,
+      sessionKey: sessionKey,
+    );
+
+    context.go(AppRoutes.transfers);
   }
 
   @override
@@ -90,9 +163,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           right: 0,
           child: _BottomControls(
             deviceCount: devices.length,
-            onSelectFiles: () {
-              // TODO: Open file picker
-            },
+            onSelectFiles: () => _pickFilesAndChooseDevice(devices),
           ),
         ),
       ],
@@ -128,9 +199,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 right: 0,
                 child: Center(
                   child: _SelectFilesButton(
-                    onPressed: () {
-                      // TODO: Open file picker
-                    },
+                    onPressed: () => _pickFilesAndChooseDevice(devices),
                   ),
                 ),
               ),
@@ -151,7 +220,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
           child: _DeviceListPanel(
             devices: devices,
-            onDeviceTap: (device) => context.push(AppRoutes.send),
+            onDeviceTap: (device) => _pickFilesAndSendTo(device),
           ),
         ),
       ],
@@ -195,7 +264,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             top: (size.height / 2) + sin(angle) * radius - 40,
             child: DeviceBubble(
               device: device,
-              onTap: () => context.push(AppRoutes.send),
+              onTap: () => _pickFilesAndSendTo(device),
             )
                 .animate()
                 .fadeIn(
@@ -212,7 +281,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         }),
 
         // Centre avatar
-        _CentreAvatar(controller: _pulseController),
+        _CentreAvatar(
+          controller: _pulseController,
+          displayName: ref.watch(settingsNotifierProvider).value?.displayName ?? '',
+        ),
       ],
     );
   }
@@ -310,7 +382,8 @@ class _HeaderButton extends StatelessWidget {
 
 class _CentreAvatar extends StatelessWidget {
   final AnimationController controller;
-  const _CentreAvatar({required this.controller});
+  final String displayName;
+  const _CentreAvatar({required this.controller, this.displayName = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -354,12 +427,21 @@ class _CentreAvatar extends StatelessWidget {
             width: 2,
           ),
         ),
-        child: const Center(
-          child: Icon(
-            Icons.person_rounded,
-            size: 32,
-            color: Colors.white,
-          ),
+        child: Center(
+          child: displayName.isNotEmpty
+              ? Text(
+                  displayName[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                  ),
+                )
+              : const Icon(
+                  Icons.person_rounded,
+                  size: 32,
+                  color: Colors.white,
+                ),
         ),
       ),
     );
@@ -771,6 +853,165 @@ class _DeviceListTileState extends State<_DeviceListTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DeviceSelectionSheet extends StatelessWidget {
+  final List<Device> devices;
+  const _DeviceSelectionSheet({required this.devices});
+
+  IconData _platformIcon(DevicePlatform platform) => switch (platform) {
+        DevicePlatform.android => Icons.phone_android_rounded,
+        DevicePlatform.linux => Icons.laptop_rounded,
+        DevicePlatform.windows => Icons.desktop_windows_rounded,
+        DevicePlatform.unknown => Icons.devices_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
+      decoration: BoxDecoration(
+        color: BlinkColors.darkSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: BlinkColors.darkHover.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Row(
+              children: [
+                const Text(
+                  'Send to',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: BlinkColors.darkHover.withValues(alpha: 0.3),
+          ),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: devices.length,
+              itemBuilder: (ctx, i) {
+                final device = devices[i];
+                return GestureDetector(
+                  onTap: () => Navigator.pop(context, device),
+                  child: Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                BlinkColors.accent.withValues(alpha: 0.15),
+                                BlinkColors.primary.withValues(alpha: 0.08),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: BlinkColors.accent.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              device.name.isNotEmpty
+                                  ? device.name[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                device.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Gap(2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    _platformIcon(device.platform),
+                                    size: 12,
+                                    color: BlinkColors.darkTextTertiary,
+                                  ),
+                                  const Gap(4),
+                                  Text(
+                                    device.platform.name,
+                                    style: const TextStyle(
+                                      color: BlinkColors.darkTextTertiary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.send_rounded,
+                          size: 18,
+                          color: BlinkColors.primary.withValues(alpha: 0.6),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const Gap(8),
+        ],
       ),
     );
   }

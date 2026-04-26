@@ -1,31 +1,60 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Holds the user's chosen name and avatar during onboarding.
-class OnboardingNotifier extends Notifier<AsyncValue<({String name, String? avatarPath})>> {
+import '../../settings/providers/settings_provider.dart';
+
+class OnboardingState {
+  final String name;
+  final String? avatarPath;
+  final bool isSaving;
+
+  const OnboardingState({
+    this.name = '',
+    this.avatarPath,
+    this.isSaving = false,
+  });
+
+  OnboardingState copyWith({
+    String? name,
+    String? avatarPath,
+    bool clearAvatar = false,
+    bool? isSaving,
+  }) =>
+      OnboardingState(
+        name: name ?? this.name,
+        avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
+        isSaving: isSaving ?? this.isSaving,
+      );
+}
+
+class OnboardingNotifier extends Notifier<OnboardingState> {
   @override
-  AsyncValue<({String name, String? avatarPath})> build() =>
-      const AsyncData((name: '', avatarPath: null));
+  OnboardingState build() => const OnboardingState();
 
   void setName(String name) {
-    state = AsyncData((name: name, avatarPath: state.value?.avatarPath));
+    state = state.copyWith(name: name);
   }
 
   void setAvatar(String path) {
-    state = AsyncData(
-        (name: state.value?.name ?? '', avatarPath: path));
+    state = state.copyWith(avatarPath: path);
   }
 
-  Future<void> save() async {
-    final data = state.value;
-    if (data == null || data.name.isEmpty) return;
-    state = const AsyncLoading();
-    // TODO: Persist name + avatar path to SQLite / secure storage
-    await Future.delayed(const Duration(milliseconds: 300));
-    state = AsyncData(data);
+  Future<bool> save() async {
+    if (state.name.trim().isEmpty) return false;
+    state = state.copyWith(isSaving: true);
+    try {
+      await ref.read(settingsNotifierProvider.notifier).completeOnboarding(
+            displayName: state.name.trim(),
+            avatarPath: state.avatarPath,
+          );
+      return true;
+    } catch (_) {
+      state = state.copyWith(isSaving: false);
+      return false;
+    }
   }
 }
 
-final onboardingNotifierProvider = NotifierProvider<OnboardingNotifier,
-    AsyncValue<({String name, String? avatarPath})>>(
+final onboardingNotifierProvider =
+    NotifierProvider<OnboardingNotifier, OnboardingState>(
   OnboardingNotifier.new,
 );

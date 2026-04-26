@@ -52,6 +52,23 @@ class IncomingSession {
   });
 }
 
+/// Emitted when POST /transfer/begin creates a new incoming session.
+class SessionBeginEvent {
+  final String sessionId;
+  final String senderDeviceId;
+  final int fileCount;
+  final int totalBytes;
+  final List<String> fileNames;
+
+  const SessionBeginEvent({
+    required this.sessionId,
+    required this.senderDeviceId,
+    required this.fileCount,
+    required this.totalBytes,
+    required this.fileNames,
+  });
+}
+
 /// Progress event emitted for each received chunk.
 class ChunkEvent {
   final String sessionId;
@@ -94,9 +111,13 @@ class HttpServerService {
 
   final _sessions = <String, IncomingSession>{};
   final _chunkController = StreamController<ChunkEvent>.broadcast();
+  final _beginController = StreamController<SessionBeginEvent>.broadcast();
 
   /// Stream of progress events for all active sessions.
   Stream<ChunkEvent> get onChunk => _chunkController.stream;
+
+  /// Stream emitted once per incoming session when POST /transfer/begin arrives.
+  Stream<SessionBeginEvent> get onSessionBegin => _beginController.stream;
 
   bool get isRunning => _running;
 
@@ -219,6 +240,15 @@ class HttpServerService {
         files: files,
         outputDir: outputDir,
       );
+
+      final sessionTotalBytes = files.fold<int>(0, (s, f) => s + f.sizeBytes);
+      _beginController.add(SessionBeginEvent(
+        sessionId: sessionId,
+        senderDeviceId: senderDeviceId,
+        fileCount: files.length,
+        totalBytes: sessionTotalBytes,
+        fileNames: files.map((f) => f.fileName).toList(),
+      ));
 
       Log.i(
         'Session $sessionId begun: ${files.length} files from $senderDeviceId',
@@ -429,6 +459,22 @@ class HttpServerService {
       builder.add(chunk);
     }
     return builder.takeBytes();
+  }
+
+  /// Cancels a session from the receiver side (closes sinks, deletes files).
+  Future<void> cancelSession(String sessionId) async {
+    final session = _sessions[sessionId];
+    if (session == null) return;
+    for (final f in session.files) {
+      await f.sink?.close();
+    }
+    try {
+      final dir = Directory(session.outputDir);
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
+    } catch (_) {}
+    _sessions.remove(sessionId);
   }
 
   Future<void> stop() async {

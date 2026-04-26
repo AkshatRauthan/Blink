@@ -13,10 +13,20 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsNotifierProvider);
+    final settingsAsync = ref.watch(settingsNotifierProvider);
     final notifier = ref.read(settingsNotifierProvider.notifier);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
+
+    final settings = settingsAsync.value;
+    if (settings == null) {
+      return Scaffold(
+        backgroundColor: BlinkColors.darkBackground,
+        body: const Center(
+          child: CircularProgressIndicator(color: BlinkColors.primary),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: BlinkColors.darkBackground,

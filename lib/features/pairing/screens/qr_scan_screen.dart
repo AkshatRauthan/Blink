@@ -22,6 +22,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   );
   bool _scanned = false;
   bool _torchEnabled = false;
+  _ScanFeedback? _feedback;
 
   @override
   void dispose() {
@@ -29,13 +30,40 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  void _onDetect(BarcodeCapture capture) async {
     if (_scanned) return;
     final code = capture.barcodes.firstOrNull?.rawValue;
     if (code == null) return;
     _scanned = true;
-    ref.read(pairingNotifierProvider.notifier).handleScannedQr(code);
-    if (mounted) context.pop();
+
+    final result =
+        await ref.read(pairingNotifierProvider.notifier).handleScannedQr(code);
+
+    if (!mounted) return;
+
+    if (result != null) {
+      setState(() {
+        _feedback = _ScanFeedback(
+          success: true,
+          message: 'Paired successfully',
+        );
+      });
+      await Future.delayed(const Duration(milliseconds: 1200));
+      if (mounted) context.pop(result);
+    } else {
+      final error =
+          ref.read(pairingNotifierProvider).error ?? 'Pairing failed';
+      setState(() {
+        _feedback = _ScanFeedback(success: false, message: error);
+      });
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        setState(() {
+          _feedback = null;
+          _scanned = false;
+        });
+      }
+    }
   }
 
   void _toggleTorch() {
@@ -50,13 +78,11 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Camera feed
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
           ),
 
-          // Dark overlay
           Positioned.fill(
             child: Container(
               color: Colors.black.withValues(alpha: 0.5),
@@ -111,13 +137,71 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
               ),
 
           // Scanning line
-          Center(
-            child: SizedBox(
-              width: 240,
-              height: 260,
-              child: _ScanningLine(),
+          if (_feedback == null)
+            Center(
+              child: SizedBox(
+                width: 240,
+                height: 260,
+                child: _ScanningLine(),
+              ),
             ),
-          ),
+
+          // Feedback overlay
+          if (_feedback != null)
+            Center(
+              child: Container(
+                width: 220,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                decoration: BoxDecoration(
+                  color: BlinkColors.darkSurface.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _feedback!.success
+                        ? BlinkColors.success.withValues(alpha: 0.3)
+                        : BlinkColors.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: (_feedback!.success
+                                ? BlinkColors.success
+                                : BlinkColors.error)
+                            .withValues(alpha: 0.12),
+                      ),
+                      child: Icon(
+                        _feedback!.success
+                            ? Icons.check_rounded
+                            : Icons.close_rounded,
+                        color: _feedback!.success
+                            ? BlinkColors.success
+                            : BlinkColors.error,
+                        size: 28,
+                      ),
+                    ),
+                    const Gap(16),
+                    Text(
+                      _feedback!.message,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(duration: 300.ms).scale(
+                    begin: const Offset(0.9, 0.9),
+                    curve: Curves.easeOutBack,
+                  ),
+            ),
 
           // Bottom controls
           Positioned(
@@ -129,7 +213,6 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
                 padding: const EdgeInsets.only(bottom: 24),
                 child: Column(
                   children: [
-                    // Instructions
                     Text(
                       'Point at the other device\'s QR code',
                       style: TextStyle(
@@ -186,7 +269,6 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
                     ),
                     const Gap(20),
 
-                    // Toggle
                     _PairingToggle(activeTab: 1),
                   ],
                 ),
@@ -197,6 +279,12 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       ),
     );
   }
+}
+
+class _ScanFeedback {
+  final bool success;
+  final String message;
+  const _ScanFeedback({required this.success, required this.message});
 }
 
 class _ScanningLine extends StatefulWidget {
@@ -270,7 +358,6 @@ class _ViewfinderPainter extends CustomPainter {
     const cornerLength = 28.0;
     const r = 14.0;
 
-    // Top-left
     canvas.drawPath(
       Path()
         ..moveTo(0, cornerLength)
@@ -280,7 +367,6 @@ class _ViewfinderPainter extends CustomPainter {
       paint,
     );
 
-    // Top-right
     canvas.drawPath(
       Path()
         ..moveTo(size.width - cornerLength, 0)
@@ -290,7 +376,6 @@ class _ViewfinderPainter extends CustomPainter {
       paint,
     );
 
-    // Bottom-right
     canvas.drawPath(
       Path()
         ..moveTo(size.width, size.height - cornerLength)
@@ -301,7 +386,6 @@ class _ViewfinderPainter extends CustomPainter {
       paint,
     );
 
-    // Bottom-left
     canvas.drawPath(
       Path()
         ..moveTo(cornerLength, size.height)

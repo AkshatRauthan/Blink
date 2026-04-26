@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,13 +47,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     super.dispose();
   }
 
-  void _onContinue() {
+  Future<void> _onContinue() async {
     if (_formKey.currentState?.validate() ?? false) {
       ref
           .read(onboardingNotifierProvider.notifier)
           .setName(_nameController.text.trim());
-      ref.read(onboardingNotifierProvider.notifier).save();
-      context.go(AppRoutes.discovery);
+      final success =
+          await ref.read(onboardingNotifierProvider.notifier).save();
+      if (success && mounted) {
+        context.go(AppRoutes.discovery);
+      }
+    }
+  }
+
+  Future<void> _pickAvatar() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result != null && result.files.single.path != null) {
+      ref
+          .read(onboardingNotifierProvider.notifier)
+          .setAvatar(result.files.single.path!);
     }
   }
 
@@ -59,6 +77,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
+    final onboardingState = ref.watch(onboardingNotifierProvider);
 
     return Scaffold(
       backgroundColor: BlinkColors.darkBackground,
@@ -127,9 +146,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
                         // Avatar picker
                         GestureDetector(
-                          onTap: () {
-                            // TODO: Open avatar picker
-                          },
+                          onTap: _pickAvatar,
                           child: Container(
                             width: 96,
                             height: 96,
@@ -151,11 +168,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                Icon(
-                                  Icons.person_rounded,
-                                  size: 44,
-                                  color: BlinkColors.primary.withValues(alpha: 0.6),
-                                ),
+                                if (onboardingState.avatarPath != null)
+                                  ClipOval(
+                                    child: Image.file(
+                                      File(onboardingState.avatarPath!),
+                                      width: 96,
+                                      height: 96,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.person_rounded,
+                                    size: 44,
+                                    color: BlinkColors.primary.withValues(alpha: 0.6),
+                                  ),
                                 Positioned(
                                   bottom: 2,
                                   right: 2,
@@ -231,7 +258,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         const Gap(24),
 
                         // CTA Button
-                        _GetStartedButton(onPressed: _onContinue)
+                        _GetStartedButton(
+                          onPressed: _onContinue,
+                          isLoading: onboardingState.isSaving,
+                        )
                             .animate()
                             .fadeIn(duration: 500.ms, delay: 1000.ms)
                             .slideY(begin: 0.08, end: 0),
@@ -369,7 +399,8 @@ class _LogoWithGlow extends StatelessWidget {
 
 class _GetStartedButton extends StatefulWidget {
   final VoidCallback onPressed;
-  const _GetStartedButton({required this.onPressed});
+  final bool isLoading;
+  const _GetStartedButton({required this.onPressed, this.isLoading = false});
 
   @override
   State<_GetStartedButton> createState() => _GetStartedButtonState();
@@ -409,15 +440,24 @@ class _GetStartedButtonState extends State<_GetStartedButton> {
             ],
           ),
           child: Center(
-            child: Text(
-              'Get Started',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-              ),
-            ),
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'Get Started',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
           ),
         ),
       ),
