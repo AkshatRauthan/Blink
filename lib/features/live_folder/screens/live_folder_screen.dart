@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,13 @@ import '../providers/live_folder_provider.dart';
 
 class LiveFolderScreen extends ConsumerWidget {
   const LiveFolderScreen({super.key});
+
+  Future<void> _pickFolder(WidgetRef ref) async {
+    final result = await FilePicker.platform.getDirectoryPath();
+    if (result != null && result.isNotEmpty) {
+      ref.read(liveFolderNotifierProvider.notifier).addFolder(result);
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,24 +50,23 @@ class LiveFolderScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      _AddFolderButton(
-                        onTap: () => ref
-                            .read(liveFolderNotifierProvider.notifier)
-                            .addFolder(''),
-                      ),
+                      _AddFolderButton(onTap: () => _pickFolder(ref)),
                     ],
                   ),
                 ),
                 const Gap(16),
                 // Content
                 Expanded(
-                  child: state.syncedFolders.isEmpty
-                      ? _EmptyState()
+                  child: state.folders.isEmpty
+                      ? _EmptyState(onAdd: () => _pickFolder(ref))
                       : ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           children: [
                             _InfoBanner(),
-                            const Gap(20),
+                            const Gap(12),
+                            if (state.pairedDeviceId == null)
+                              _NoPairedDeviceBanner(),
+                            if (state.pairedDeviceId == null) const Gap(12),
                             Text(
                               'SYNCED FOLDERS',
                               style: TextStyle(
@@ -70,14 +77,18 @@ class LiveFolderScreen extends ConsumerWidget {
                               ),
                             ),
                             const Gap(10),
-                            ...state.syncedFolders.asMap().entries.map(
+                            ...state.folders.asMap().entries.map(
                                   (e) => _FolderCard(
-                                    folderPath: e.value,
+                                    folder: e.value,
                                     index: e.key,
                                     onRemove: () => ref
-                                        .read(liveFolderNotifierProvider
-                                            .notifier)
-                                        .removeFolder(e.value),
+                                        .read(
+                                            liveFolderNotifierProvider.notifier)
+                                        .removeFolder(e.value.path),
+                                    onTogglePause: () => ref
+                                        .read(
+                                            liveFolderNotifierProvider.notifier)
+                                        .togglePause(e.value.path),
                                   ),
                                 ),
                             const Gap(80),
@@ -153,6 +164,9 @@ class _AddFolderButtonState extends State<_AddFolderButton> {
 }
 
 class _EmptyState extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _EmptyState({required this.onAdd});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -194,6 +208,8 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const Gap(28),
+            _AddFolderButton(onTap: onAdd),
+            const Gap(24),
             _InfoBanner(),
           ],
         ).animate().fadeIn(duration: 500.ms),
@@ -242,15 +258,50 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
+class _NoPairedDeviceBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: BlinkColors.error.withValues(alpha: 0.08),
+        border: Border.all(
+          color: BlinkColors.error.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: BlinkColors.error.withValues(alpha: 0.7), size: 18),
+          const Gap(10),
+          Expanded(
+            child: Text(
+              'No paired device. Pair via QR to enable live sync.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FolderCard extends StatefulWidget {
-  final String folderPath;
+  final WatchedFolder folder;
   final int index;
   final VoidCallback onRemove;
+  final VoidCallback onTogglePause;
 
   const _FolderCard({
-    required this.folderPath,
+    required this.folder,
     required this.index,
     required this.onRemove,
+    required this.onTogglePause,
   });
 
   @override
@@ -262,10 +313,11 @@ class _FolderCardState extends State<_FolderCard> {
 
   @override
   Widget build(BuildContext context) {
-    final folderName = widget.folderPath.isEmpty
+    final folderName = widget.folder.path.isEmpty
         ? 'Untitled Folder'
-        : p.basename(widget.folderPath);
-    final isSyncing = widget.folderPath.isNotEmpty;
+        : p.basename(widget.folder.path);
+    final isWatching = !widget.folder.isPaused;
+    final pending = widget.folder.pendingChanges;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -317,10 +369,8 @@ class _FolderCardState extends State<_FolderCard> {
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isSyncing
-                              ? BlinkColors.success
-                              : Colors.grey,
-                          boxShadow: isSyncing
+                          color: isWatching ? BlinkColors.success : Colors.grey,
+                          boxShadow: isWatching
                               ? [
                                   BoxShadow(
                                     color: BlinkColors.success
@@ -333,20 +383,56 @@ class _FolderCardState extends State<_FolderCard> {
                       ),
                       const Gap(5),
                       Text(
-                        isSyncing ? 'Watching' : 'Paused',
+                        isWatching ? 'Watching' : 'Paused',
                         style: TextStyle(
-                          color: isSyncing
-                              ? BlinkColors.success
-                              : Colors.grey,
+                          color: isWatching ? BlinkColors.success : Colors.grey,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if (pending > 0) ...[
+                        const Gap(8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            color: BlinkColors.accent.withValues(alpha: 0.15),
+                          ),
+                          child: Text(
+                            '$pending pending',
+                            style: TextStyle(
+                              color: BlinkColors.accent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
+            GestureDetector(
+              onTap: widget.onTogglePause,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+                child: Icon(
+                  isWatching
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  size: 16,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+            const Gap(6),
             GestureDetector(
               onTap: widget.onRemove,
               child: Container(

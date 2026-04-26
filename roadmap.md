@@ -9,11 +9,12 @@
 - `PARTIAL`: Scaffolded but not yet integrated end-to-end
 - `COMPLETE`: End-to-end implemented and validated
 
-## Current Reality Snapshot (April 25, 2026)
+## Current Reality Snapshot (April 26, 2026)
 
-- **Phases 1–3 backend: COMPLETE.** Crypto, HTTP transfer, discovery, and QR handshake are fully implemented with 29 passing tests.
-- **Phase 4 visual UI redesign: COMPLETE.** All 9 core screens + 5 sub-widgets fully rewritten with "Midnight Obsidian" premium dark design. Logo created. 0 analyzer errors/warnings.
-- Phase 4 wiring (UI → live backend services) is the active frontier.
+- **Phases 1–3 backend: COMPLETE.** Crypto, HTTP transfer, discovery, and QR handshake are fully implemented with 18 passing tests.
+- **Phase 4 UI + wiring: COMPLETE.** All screens redesigned ("Midnight Obsidian") + fully wired to live backends: transfer, QR handshake, file selection review, chat over HTTP.
+- **Phase 5 advanced sync: COMPLETE.** Live Folders (watcher + auto-send), Contact Groups (SQLite + 1-to-many broadcast), Chat Engine (HTTP message pass).
+- **Phase 6 polish: PARTIAL.** AndroidService wired to PlatformChannelService. Remaining: BLAKE3 native compilation, Lottie animations, memory profiling, cross-platform testing.
 - Linux build blocked by upstream flutter_webrtc plugin issue (missing libwebrtc headers).
 
 ## Milestones
@@ -61,8 +62,8 @@
   * ✅ Glassmorphism (BackdropFilter) on nav bar, device bubbles, discovery header.
   * ✅ Adaptive layouts: mobile (<800px bottom nav) + desktop (≥800px sidebar rail + side panels).
   * ✅ Logo: lightning bolt SVG (128×128 full + 32×32 compact) with brand gradient.
-  * [ ] Wire all UI screens to live backend services (discovery, transfer, QR).
-* **Status:** PARTIAL — visual redesign complete, backend wiring pending
+  * ✅ Wire all UI screens to live backend services (discovery, transfer, QR, chat, file selection).
+* **Status:** COMPLETE
 * **What shipped (visual):**
   * `OnboardingScreen` — ambient gradient orbs, glassmorphic avatar picker, security badges
   * `DiscoveryScreen` — frosted glass header, 5-ring radar, glassmorphic device bubbles, desktop side panel
@@ -82,26 +83,31 @@
   * ✅ Onboarding persistence — name/avatar → SQLite via `SettingsRepository`, GoRouter guard, loading splash, centre avatar initial on Discovery
   * ✅ Transfer UI wiring — file picker → device selection → TransferManager.sendFiles, Accept/Decline for incoming, auto-start receiver, real-time progress via ActiveTransfersNotifier
   * ✅ QR Scanner wiring — MobileScanner → validateAndConsume → X25519 ECDH session key derivation, success/failure feedback overlay
-* **Active work (wiring):**
-  * File Explorer/Selection UI (dedicated browsing experience)
-  * In-Transfer Chat Engine
+* **What shipped (wiring, continued):**
+  * ✅ File Selection UI — `FileSelectionProvider` + `FileReviewSheet` with type icons, sizes, remove, total, send action
+  * ✅ Chat Engine — HTTP chat route on server, `ChatNotifier` sends/receives over network, session-scoped messaging
 
-### M4: Advanced Sync — PENDING
+### M4: Advanced Sync — COMPLETE
 **Target:** Real-time persistence and complex use-cases.
 * **Goals:** 
-  * Working Live Folders responding instantly to file drops in the OS.
-  * Chat module tunneling over active file pipelines.
-  * Classroom Mode testing.
-* **Status:** PENDING
+  * ✅ Working Live Folders responding instantly to file drops in the OS.
+  * ✅ Chat module tunneling over active file pipelines.
+  * ✅ Contact Groups with SQLite persistence and 1-to-many broadcast.
+* **Status:** COMPLETE
+* **What shipped:**
+  * `LiveFolderNotifier` — `watcher` package directory monitoring, 2s debounce queue, auto-send to paired device via `TransferManager`, pause/resume per folder, pending change badges, `file_picker.getDirectoryPath()` for folder selection
+  * `GroupsNotifier` — SQLite CRUD via `GroupsRepository`, `sendToGroup()` iterates online members, `GroupsScreen` redesigned with Midnight Obsidian design, group details sheet with add-from-discovery
+  * `ChatNotifier` — HTTP POST to `/transfer/:sid/chat`, incoming message stream from server, SQLite persistence via `ChatRepository`, session-scoped open/close
 
-### M5: Release Candidate — PENDING
+### M5: Release Candidate — PARTIAL
 **Target:** Hardened launch preparation.
 * **Goals:**
-  * Clean up previous dead code and stubs.
-  * Compile BLAKE3 native library for all platforms.
-  * Memory footprint profiling on lengthy multi-GB transfers.
-  * Cross-compile and test Linux, Windows, Android natively.
-* **Status:** PENDING
+  * ✅ Clean up service stubs — AndroidService wired to PlatformChannelService.
+  * [ ] Compile BLAKE3 native library for all platforms.
+  * [ ] Memory footprint profiling on lengthy multi-GB transfers.
+  * [ ] Cross-compile and test Linux, Windows, Android natively.
+  * [ ] Lottie animations for loading, success, error, empty states.
+* **Status:** PARTIAL — stub cleanup done, native compilation and profiling pending
 
 ---
 

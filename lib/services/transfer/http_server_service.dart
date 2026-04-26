@@ -11,6 +11,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/logger.dart';
+import '../../data/models/chat_message.dart';
 import '../native/native_hash_service.dart';
 import '../security/crypto_service.dart';
 
@@ -112,12 +113,16 @@ class HttpServerService {
   final _sessions = <String, IncomingSession>{};
   final _chunkController = StreamController<ChunkEvent>.broadcast();
   final _beginController = StreamController<SessionBeginEvent>.broadcast();
+  final _chatController = StreamController<ChatMessage>.broadcast();
 
   /// Stream of progress events for all active sessions.
   Stream<ChunkEvent> get onChunk => _chunkController.stream;
 
   /// Stream emitted once per incoming session when POST /transfer/begin arrives.
   Stream<SessionBeginEvent> get onSessionBegin => _beginController.stream;
+
+  /// Stream of incoming chat messages received via POST /transfer/:sid/chat.
+  Stream<ChatMessage> get onChatMessage => _chatController.stream;
 
   bool get isRunning => _running;
 
@@ -135,6 +140,8 @@ class HttpServerService {
               _handleChunk(req, sid, int.parse(fileIndex)))
       ..get('/transfer/<sid>/status',
           (Request req, String sid) => _handleStatus(req, sid))
+      ..post('/transfer/<sid>/chat',
+          (Request req, String sid) => _handleChat(req, sid))
       ..delete('/transfer/<sid>',
           (Request req, String sid) => _handleCancel(req, sid));
 
@@ -424,6 +431,25 @@ class HttpServerService {
       jsonEncode({'sessionId': sessionId, 'files': filesStatus}),
       headers: {'Content-Type': 'application/json'},
     );
+  }
+
+  /// POST /transfer/:sid/chat
+  Future<Response> _handleChat(Request req, String sessionId) async {
+    try {
+      final body = await req.readAsString();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final message = ChatMessage.fromJson(json);
+      _chatController.add(message);
+      return Response.ok(
+        '{"status":"delivered"}',
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError(
+        body: '{"error":"$e"}',
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
   /// DELETE /transfer/:sid

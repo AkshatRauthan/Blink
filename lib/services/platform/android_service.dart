@@ -1,17 +1,16 @@
 import '../../core/utils/logger.dart';
 import '../../core/utils/platform_utils.dart';
+import 'platform_channel_service.dart';
 
-/// Android-specific features: foreground service and Wi-Fi hotspot.
-///
-/// All methods are no-ops on non-Android platforms.
 class AndroidService {
   AndroidService._();
   static final instance = AndroidService._();
 
-  /// Starts a foreground service notification to keep Blink alive in background.
+  final _channel = PlatformChannelService.instance;
+
   Future<void> startForegroundService({required String notificationText}) async {
     if (!PlatformUtils.isAndroid) return;
-    // TODO: Invoke platform channel method 'startForeground' on MainActivity
+    await _channel.startForeground('Blink Transfer', notificationText);
     Log.i(
       'Foreground service started: $notificationText',
       source: LogSource.system,
@@ -21,7 +20,7 @@ class AndroidService {
 
   Future<void> stopForegroundService() async {
     if (!PlatformUtils.isAndroid) return;
-    // TODO: Invoke platform channel method 'stopForeground'
+    await _channel.stopForeground();
     Log.i(
       'Foreground service stopped',
       source: LogSource.system,
@@ -29,20 +28,22 @@ class AndroidService {
     );
   }
 
-  /// Enables a Wi-Fi hotspot for the fallback transport.
   Future<String?> enableHotspot() async {
     if (!PlatformUtils.isAndroid) return null;
-    // TODO: Invoke platform channel 'enableHotspot', return SSID/password
-    Log.i(
-      'Hotspot enabled',
-      source: LogSource.system,
-      component: 'AndroidService',
-    );
+    final result = await _channel.enableHotspot();
+    if (result != null) {
+      Log.i(
+        'Hotspot enabled: SSID=${result['ssid']}',
+        source: LogSource.system,
+        component: 'AndroidService',
+      );
+      return result['ssid'];
+    }
     return null;
   }
 
   Future<void> disableHotspot() async {
     if (!PlatformUtils.isAndroid) return;
-    // TODO: Invoke platform channel 'disableHotspot'
+    await _channel.disableHotspot();
   }
 }

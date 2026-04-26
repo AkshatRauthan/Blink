@@ -26,8 +26,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
 
-  static const _localDeviceId = 'local';
-
   @override
   void dispose() {
     _controller.dispose();
@@ -55,7 +53,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(chatNotifierProvider);
+    final chatState = ref.watch(chatNotifierProvider);
+    final messages = chatState.messages;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
@@ -85,7 +84,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           itemBuilder: (_, i) {
                             final msg = messages[i];
                             final isMine =
-                                msg.senderDeviceId == _localDeviceId;
+                                msg.senderDeviceId == 'me';
                             final showTime = i == 0 ||
                                 messages[i]
                                         .sentAt

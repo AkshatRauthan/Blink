@@ -234,7 +234,7 @@ Incoming file transfers screen. Features incoming request cards with Accept/Decl
 | **File** | `lib/features/chat/screens/chat_screen.dart` |
 | **Route** | `/chat` (`AppRoutes.chat`) |
 | **Provider** | `chatNotifierProvider` |
-| **State** | `List<ChatMessage>` |
+| **State** | `ChatState { sessionId, remoteIp, remotePort, messages }` |
 | **Stitch Screen** | `f5ceeb07eb27409288c3ff3503ea54c9` |
 
 ### Description
@@ -249,7 +249,9 @@ iMessage-style device chat for sending quick messages alongside file transfers. 
 
 ### Behaviour
 - Auto-scrolls to bottom after sending via `WidgetsBinding.addPostFrameCallback`
-- `sendMessage(text)` via `chatNotifierProvider.notifier`
+- `sendMessage(text)` via `chatNotifierProvider.notifier` — persists to SQLite + sends over HTTP to paired device
+- `openSession(sessionId, remoteIp, remotePort)` — binds chat to a transfer session for network messaging
+- Incoming messages received via `HttpServerService.onChatMessage` stream, stored + displayed in real time
 - Maintains focus on text field after send
 
 ---
@@ -261,7 +263,7 @@ iMessage-style device chat for sending quick messages alongside file transfers. 
 | **File** | `lib/features/live_folder/screens/live_folder_screen.dart` |
 | **Route** | `/live-folders` (`AppRoutes.liveFolders`) |
 | **Provider** | `liveFolderNotifierProvider` |
-| **State** | `LiveFolderState { syncedFolders: List<String> }` |
+| **State** | `LiveFolderState { folders: List<WatchedFolder>, pairedDeviceId, pairedDeviceIp, pairedDevicePort }` |
 | **Stitch Screen** | `31787a6643ad46b59daac2ec97cffeed` |
 
 ### Description
@@ -275,8 +277,13 @@ Auto-sync screen where users watch local folders for changes that automatically 
 - **Staggered entrance** — `flutter_animate` fadeIn + slideY with staggered delays per card
 
 ### Behaviour
-- `addFolder(path)` — starts a `DirectoryWatcher` on the path
+- `addFolder(path)` — opens `file_picker.getDirectoryPath()`, starts a `DirectoryWatcher` on the path
 - `removeFolder(path)` — cancels the watcher subscription and removes from state
+- `togglePause(path)` — pauses/resumes watching without removing the folder
+- `setPairedDevice(deviceId, ip, port)` — binds a target device for auto-sync
+- File changes debounced 2s, then queued and sent via `TransferManager.sendFiles()`
+- Pending change count badge shown per folder card
+- "No paired device" warning banner when no device is bound
 
 ---
 
@@ -427,21 +434,26 @@ All routes defined in `lib/app.dart` → `AppRoutes`:
 | **File** | `lib/features/groups/screens/groups_screen.dart` |
 | **Route** | `/groups` (`AppRoutes.groups`) |
 | **Provider** | `groupsNotifierProvider` |
-| **State** | `List<ContactGroup>` |
-| **Stitch Screen** | Generated March 2026 |
+| **State** | `GroupsState { groups: List<ContactGroup>, isLoading }` |
+| **Persistence** | SQLite via `GroupsRepository` (member_ids stored as JSON array) |
 
 ### Description
-Manage device groups for quick multi-device sharing. Groups persist across sessions and allow one-tap sharing to multiple devices.
+Manage device groups for quick multi-device 1-to-many sharing. Groups persist to SQLite. Midnight Obsidian redesign with dark surface cards, gradient group icons, bottom sheet dialogs. Members added from nearby discovered devices.
 
 ### Key UI Elements
-- **Groups list** — Grid or list layout of saved groups
-- **Group card** — Shows avatar stack of member devices, group name, member count, chevron for navigation
-- **Empty state** — Folder icon with "Create your first group" message
-- **FAB** — Gradient purple-cyan "New Group" button
+- **Group card** — `_GroupCard`: dark surface with gradient group icon, name, member dot stack + count, send button (primary circle), more/delete button. Hover states on desktop.
+- **Empty state** — Circular primary-tinted group icon, descriptive text, gradient "New Group" button
+- **Create dialog** — Bottom sheet with dark input field, Cancel/Create buttons (gradient CTA)
+- **Group details sheet** — Header with gradient icon + name + member count, MEMBERS list with online/offline status, remove button. ADD NEARBY DEVICES section populated from `discoveryNotifierProvider`.
+- **Delete confirmation** — Bottom sheet with Cancel/Delete (error-tinted) buttons
+- **New Group header button** — Gradient pill with plus icon, press scale animation
 
-### Navigation
-- **Group card tap** → Group detail view
-- **FAB tap** → Create group flow
+### Behaviour
+- `createGroup(name)` — generates UUID, persists to SQLite, prepends to state
+- `deleteGroup(groupId)` — removes from SQLite + state with confirmation dialog
+- `addMember(groupId, deviceId)` / `removeMember(groupId, deviceId)` — SQLite + state sync
+- `sendToGroup(groupId, filePaths, availableDevices)` — opens file_picker, iterates online group members, spawns parallel `TransferManager.sendFiles()` per device
+- Group details sheet shows nearby non-member devices for quick add
 
 ---
 

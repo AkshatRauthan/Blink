@@ -15,7 +15,9 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/device.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../../transfer/providers/file_selection_provider.dart';
 import '../../transfer/providers/transfer_provider.dart';
+import '../../transfer/widgets/file_review_sheet.dart';
 import '../providers/discovery_provider.dart';
 import '../widgets/device_bubble.dart';
 import '../widgets/radar_painter.dart';
@@ -67,12 +69,52 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   Future<void> _pickFilesAndSendTo(Device device) async {
     final filePaths = await _pickFiles();
     if (filePaths == null || filePaths.isEmpty || !mounted) return;
-    _startTransfer(filePaths, device);
+
+    ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
+    if (!mounted) return;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => FileReviewSheet(
+        onConfirm: () => Navigator.pop(context, true),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final paths = ref.read(fileSelectionProvider).files.map((f) => f.path).toList();
+      ref.read(fileSelectionProvider.notifier).clear();
+      if (paths.isNotEmpty) _startTransfer(paths, device);
+    } else {
+      ref.read(fileSelectionProvider.notifier).clear();
+    }
   }
 
   Future<void> _pickFilesAndChooseDevice(List<Device> devices) async {
     final filePaths = await _pickFiles();
     if (filePaths == null || filePaths.isEmpty || !mounted) return;
+
+    ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
+    if (!mounted) return;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => FileReviewSheet(
+        onConfirm: () => Navigator.pop(context, true),
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      ref.read(fileSelectionProvider.notifier).clear();
+      return;
+    }
+
+    final paths = ref.read(fileSelectionProvider).files.map((f) => f.path).toList();
+    ref.read(fileSelectionProvider.notifier).clear();
+    if (paths.isEmpty) return;
 
     if (devices.isEmpty) {
       if (!mounted) return;
@@ -87,7 +129,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     }
 
     if (devices.length == 1) {
-      _startTransfer(filePaths, devices.first);
+      _startTransfer(paths, devices.first);
       return;
     }
 
@@ -100,7 +142,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     );
 
     if (selected != null && mounted) {
-      _startTransfer(filePaths, selected);
+      _startTransfer(paths, selected);
     }
   }
 
