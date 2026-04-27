@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app.dart';
@@ -178,13 +179,14 @@ class _QrShowScreenState extends ConsumerState<QrShowScreen> {
                                 ),
                               )
                             else
-                              const SizedBox(
+                              SizedBox(
                                 width: 220,
                                 height: 220,
                                 child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: BlinkColors.primary,
-                                    strokeWidth: 2,
+                                  child: Lottie.asset(
+                                    'assets/lottie/loading.json',
+                                    width: 80,
+                                    height: 80,
                                   ),
                                 ),
                               ),

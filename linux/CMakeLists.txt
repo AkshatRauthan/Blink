@@ -70,6 +70,25 @@ set_target_properties(${BINARY_NAME}
 )
 
 
+# ── Native libraries (BLAKE3, LZ4) ───────────────────────────────────────────
+set(NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../native")
+
+# BLAKE3 — only build if sources have been downloaded
+if(EXISTS "${NATIVE_DIR}/blake3/blake3.c")
+  add_subdirectory("${NATIVE_DIR}/blake3" "${CMAKE_BINARY_DIR}/blake3")
+  install(TARGETS blink_blake3
+    LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
+# LZ4 — only build if sources have been downloaded
+if(EXISTS "${NATIVE_DIR}/lz4/lz4.c")
+  add_subdirectory("${NATIVE_DIR}/lz4" "${CMAKE_BINARY_DIR}/lz4")
+  install(TARGETS blink_lz4
+    LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)

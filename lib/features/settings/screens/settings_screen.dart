@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/blink_animation.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -22,9 +23,7 @@ class SettingsScreen extends ConsumerWidget {
     if (settings == null) {
       return Scaffold(
         backgroundColor: BlinkColors.darkBackground,
-        body: const Center(
-          child: CircularProgressIndicator(color: BlinkColors.primary),
-        ),
+        body: const BlinkLoadingOverlay(message: 'Loading settings...'),
       );
     }
 

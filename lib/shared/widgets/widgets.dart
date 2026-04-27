@@ -3,6 +3,7 @@
 /// Import this file to access all reusable UI components.
 library;
 
+export 'blink_animation.dart';
 export 'blink_avatar.dart';
 export 'blink_button.dart';
 export 'blink_card.dart';

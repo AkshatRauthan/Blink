@@ -5,10 +5,6 @@ import '../../data/models/device.dart';
 import 'mdns_service.dart';
 import 'ble_service.dart';
 
-/// Combines mDNS and BLE discovery into a single unified stream.
-///
-/// mDNS is the primary channel on all platforms.
-/// BLE provides a faster initial tap-to-send signal on Android.
 class DiscoveryManager {
   DiscoveryManager._();
   static final instance = DiscoveryManager._();
@@ -20,14 +16,12 @@ class DiscoveryManager {
   final _lostController = StreamController<String>.broadcast();
   StreamSubscription<Device>? _mdnsSub;
   StreamSubscription<String>? _mdnsLostSub;
+  StreamSubscription<Device>? _bleSub;
+  StreamSubscription<String>? _bleLostSub;
 
-  /// Unified stream of nearby devices from all discovery sources.
   Stream<Device> get onDeviceFound => _devicesController.stream;
-
-  /// Stream of device IDs that have disappeared from the network.
   Stream<String> get onDeviceLost => _lostController.stream;
 
-  /// Starts both mDNS and BLE discovery.
   Future<void> startAll({
     required String deviceId,
     required String deviceName,
@@ -38,6 +32,9 @@ class DiscoveryManager {
       source: LogSource.service,
       component: 'DiscoveryManager',
     );
+
+    await _ble.init();
+
     await Future.wait([
       _mdns.startAdvertising(
         deviceId: deviceId,
@@ -51,6 +48,8 @@ class DiscoveryManager {
 
     _mdnsSub = _mdns.onDeviceDiscovered.listen(_devicesController.add);
     _mdnsLostSub = _mdns.onDeviceLost.listen(_lostController.add);
+    _bleSub = _ble.onDeviceDiscovered.listen(_devicesController.add);
+    _bleLostSub = _ble.onDeviceLost.listen(_lostController.add);
   }
 
   Future<void> stopAll() async {
@@ -58,6 +57,11 @@ class DiscoveryManager {
     _mdnsSub = null;
     await _mdnsLostSub?.cancel();
     _mdnsLostSub = null;
+    await _bleSub?.cancel();
+    _bleSub = null;
+    await _bleLostSub?.cancel();
+    _bleLostSub = null;
+
     await Future.wait([
       _mdns.stopAdvertising(),
       _mdns.stopDiscovery(),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:lottie/lottie.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/theme/app_colors.dart';
@@ -175,18 +176,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
+            Lottie.asset(
+              'assets/lottie/loading.json',
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: BlinkColors.primary.withValues(alpha: 0.08),
-              ),
-              child: Icon(
-                Icons.folder_copy_outlined,
-                size: 36,
-                color: BlinkColors.primary.withValues(alpha: 0.3),
-              ),
+              repeat: true,
             ),
             const Gap(20),
             Text(
