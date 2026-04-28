@@ -86,3 +86,10 @@ flutter:
     - assets/lottie/
     - assets/svg/
     - assets/svg/logo/
+    - assets/svg/nav/
+    - assets/svg/actions/
+    - assets/svg/devices/
+    - assets/svg/files/
+    - assets/svg/qr/
+    - assets/svg/status/
+    - assets/svg/ui/

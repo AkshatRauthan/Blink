@@ -21,6 +21,11 @@ target_compile_options(blink_lz4 PRIVATE -O3 -DNDEBUG)
 
 set_target_properties(blink_lz4 PROPERTIES
     OUTPUT_NAME "blink_lz4"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     POSITION_INDEPENDENT_CODE ON
 )
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set_target_properties(blink_lz4 PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  )
+endif()

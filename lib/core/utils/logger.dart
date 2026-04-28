@@ -27,8 +27,8 @@ abstract class Log {
   static const bool _buildAllowsLogs = !kReleaseMode;
   static const bool _runtimeEnabled =
       bool.fromEnvironment('BLINK_ENABLE_LOGS', defaultValue: true);
-    static const String _minLevelEnv =
-      String.fromEnvironment('BLINK_LOG_LEVEL', defaultValue: 'TRACE');
+  static const String _minLevelEnv =
+      String.fromEnvironment('BLINK_LOG_LEVEL', defaultValue: 'INFO');
 
   static bool get _enabled => _buildAllowsLogs && _runtimeEnabled;
 
@@ -38,6 +38,12 @@ abstract class Log {
   static bool _initialised = false;
   static String? _currentLogPath;
   static final List<String> _bufferBeforeInit = <String>[];
+  static String? _lastLine;
+  static LogLevel? _lastLevel;
+  static LogSource? _lastSource;
+  static int _lastRepeatCount = 0;
+  static DateTime? _lastAt;
+  static const Duration _dedupeWindow = Duration(milliseconds: 600);
 
   static String? get currentLogPath => _currentLogPath;
 
@@ -71,6 +77,7 @@ abstract class Log {
 
   static Future<void> close() async {
     if (_fileSink != null) {
+      _flushRepeats();
       _writeRaw('--- Blink session ended @ ${DateTime.now().toIso8601String()} ---');
       await _fileSink!.flush();
       await _fileSink!.close();
@@ -175,11 +182,26 @@ abstract class Log {
     final line =
         '$ts [${_levelToken(level)}] [${source.name.toUpperCase()}] [$resolvedComponent] $cleanMessage';
 
-    if (level.index >= LogLevel.error.index) {
-      stderr.writeln(line);
-    } else {
-      stdout.writeln(line);
+    final now = DateTime.now();
+    if (line == _lastLine && _lastAt != null) {
+      final withinWindow = now.difference(_lastAt!) <= _dedupeWindow;
+      if (withinWindow) {
+        _lastRepeatCount++;
+        _lastAt = now;
+        return;
+      }
     }
+
+    _flushRepeats();
+
+    final colorLine = _colorize(line, level);
+    if (level.index >= LogLevel.error.index) {
+      stderr.writeln(colorLine);
+    } else {
+      stdout.writeln(colorLine);
+    }
+
+    _writeConsoleGap();
 
     _writeRaw(line);
 
@@ -188,6 +210,47 @@ abstract class Log {
     }
     if (stackTrace != null) {
       _writeRaw('    stack: $stackTrace');
+    }
+
+    _writeRaw('');
+
+    _lastLine = line;
+    _lastLevel = level;
+    _lastSource = source;
+    _lastRepeatCount = 0;
+    _lastAt = now;
+  }
+
+  static void _flushRepeats() {
+    if (_lastRepeatCount <= 0 || _lastLine == null) return;
+
+    final level = _lastLevel ?? LogLevel.debug;
+    final source = _lastSource ?? LogSource.system;
+    final ts = DateTime.now().toIso8601String();
+    final line =
+        '$ts [${_levelToken(level)}] [${source.name.toUpperCase()}] [Logger] (previous line repeated $_lastRepeatCount times)';
+
+    final colorLine = _colorize(line, level);
+    if (level.index >= LogLevel.error.index) {
+      stderr.writeln(colorLine);
+    } else {
+      stdout.writeln(colorLine);
+    }
+
+    _writeConsoleGap();
+    _writeRaw(line);
+    _writeRaw('');
+
+    _lastRepeatCount = 0;
+  }
+
+  static void _writeConsoleGap() {
+    if (stderr.hasTerminal) {
+      stderr.writeln('');
+    } else if (stdout.hasTerminal) {
+      stdout.writeln('');
+    } else {
+      stdout.writeln('');
     }
   }
 
@@ -228,7 +291,6 @@ abstract class Log {
       return;
     }
     _fileSink!.writeln(line);
-    _fileSink!.flush();
   }
 
   static String _levelToken(LogLevel level) {
@@ -247,6 +309,34 @@ abstract class Log {
         return 'ERROR';
       case LogLevel.fatal:
         return 'FATAL';
+    }
+  }
+
+  static String _colorize(String line, LogLevel level) {
+    final useColor = stdout.supportsAnsiEscapes || stderr.supportsAnsiEscapes;
+    if (!useColor) return line;
+
+    final color = _levelColor(level);
+    if (color.isEmpty) return line;
+    return '$color$line\x1B[0m';
+  }
+
+  static String _levelColor(LogLevel level) {
+    switch (level) {
+      case LogLevel.trace:
+        return '\x1B[90m'; // bright black
+      case LogLevel.debug:
+        return '\x1B[36m'; // cyan
+      case LogLevel.info:
+        return '\x1B[32m'; // green
+      case LogLevel.log:
+        return '\x1B[37m'; // white
+      case LogLevel.warning:
+        return '\x1B[33m'; // yellow
+      case LogLevel.error:
+        return '\x1B[31m'; // red
+      case LogLevel.fatal:
+        return '\x1B[35m'; // magenta
     }
   }
 

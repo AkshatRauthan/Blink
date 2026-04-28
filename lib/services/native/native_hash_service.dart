@@ -31,16 +31,17 @@ final class Blake3ChunkState extends Struct {
 }
 
 final class Blake3Hasher extends Struct {
+  @Array(8)
+  external Array<Uint32> key;
+
   external Blake3ChunkState chunk;
-
-  @Array(32)
-  external Array<Uint8> key;
-
-  @Array(432)
-  external Array<Uint32> cvStack;
 
   @Uint8()
   external int cvStackLen;
+
+  // (BLAKE3_MAX_DEPTH + 1) * BLAKE3_OUT_LEN = 55 * 32 = 1760
+  @Array(1760)
+  external Array<Uint8> cvStack;
 }
 
 typedef _Blake3HasherInitNative = Void Function(Pointer<Blake3Hasher>);

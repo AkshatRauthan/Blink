@@ -70,23 +70,17 @@ set_target_properties(${BINARY_NAME}
 )
 
 
-# ── Native libraries (BLAKE3, LZ4) ───────────────────────────────────────────
+# ── Native libraries (BLAKE3, LZ4) — build targets only ──────────────────────
 set(NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../native")
 
-# BLAKE3 — only build if sources have been downloaded
 if(EXISTS "${NATIVE_DIR}/blake3/blake3.c")
-  add_subdirectory("${NATIVE_DIR}/blake3" "${CMAKE_BINARY_DIR}/blake3")
-  install(TARGETS blink_blake3
-    LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    COMPONENT Runtime)
+  add_subdirectory("${NATIVE_DIR}/blake3" "${CMAKE_BINARY_DIR}/blake3" EXCLUDE_FROM_ALL)
+  add_dependencies(${BINARY_NAME} blink_blake3)
 endif()
 
-# LZ4 — only build if sources have been downloaded
 if(EXISTS "${NATIVE_DIR}/lz4/lz4.c")
-  add_subdirectory("${NATIVE_DIR}/lz4" "${CMAKE_BINARY_DIR}/lz4")
-  install(TARGETS blink_lz4
-    LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    COMPONENT Runtime)
+  add_subdirectory("${NATIVE_DIR}/lz4" "${CMAKE_BINARY_DIR}/lz4" EXCLUDE_FROM_ALL)
+  add_dependencies(${BINARY_NAME} blink_lz4)
 endif()
 
 # Generated plugin build rules, which manage building the plugins and adding
@@ -124,6 +118,18 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# ── Install native libraries (BLAKE3, LZ4) into bundle ──────────────────────
+if(TARGET blink_blake3)
+  install(FILES $<TARGET_FILE:blink_blake3>
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+if(TARGET blink_lz4)
+  install(FILES $<TARGET_FILE:blink_lz4>
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")

@@ -24,7 +24,7 @@ SRC_DIR="$TEMP_DIR/BLAKE3-${BLAKE3_VERSION}/c"
 cp "$SRC_DIR/blake3.c" "$SCRIPT_DIR/"
 cp "$SRC_DIR/blake3_dispatch.c" "$SCRIPT_DIR/"
 cp "$SRC_DIR/blake3_portable.c" "$SCRIPT_DIR/"
-cp "$SRC_DIR/blake3.h" "$SCRIPT_DIR/blake3_upstream.h"
+cp "$SRC_DIR/blake3.h" "$SCRIPT_DIR/"
 cp "$SRC_DIR/blake3_impl.h" "$SCRIPT_DIR/"
 
 # x86_64 SIMD intrinsics (optional — for desktop Linux/Windows)

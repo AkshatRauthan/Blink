@@ -27,6 +27,7 @@ endif()
 add_library(blink_blake3 SHARED ${BLAKE3_SOURCES})
 
 target_include_directories(blink_blake3 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(blink_blake3 PRIVATE BLAKE3_VERSION_STRING="1.5.4")
 target_compile_options(blink_blake3 PRIVATE -O3 -DNDEBUG)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|x86")
@@ -41,6 +42,12 @@ endif()
 
 set_target_properties(blink_blake3 PROPERTIES
     OUTPUT_NAME "blink_blake3"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     POSITION_INDEPENDENT_CODE ON
 )
+
+# Only set output dir when built standalone (not as subdirectory)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set_target_properties(blink_blake3 PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  )
+endif()

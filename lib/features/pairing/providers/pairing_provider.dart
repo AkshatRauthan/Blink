@@ -48,9 +48,16 @@ class PairingState {
 }
 
 class PairingNotifier extends Notifier<PairingState> {
+  bool _initialized = false;
+
   @override
   PairingState build() {
-    _generateToken();
+    if (!_initialized) {
+      _initialized = true;
+      Future.microtask(() {
+        _generateToken();
+      });
+    }
     return const PairingState();
   }
 

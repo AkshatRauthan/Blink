@@ -21,7 +21,7 @@ tar -xzf "$TEMP_DIR/lz4.tar.gz" -C "$TEMP_DIR"
 SRC_DIR="$TEMP_DIR/lz4-${LZ4_VERSION}/lib"
 
 cp "$SRC_DIR/lz4.c" "$SCRIPT_DIR/"
-cp "$SRC_DIR/lz4.h" "$SCRIPT_DIR/lz4_upstream.h"
+cp "$SRC_DIR/lz4.h" "$SCRIPT_DIR/"
 cp "$SRC_DIR/lz4hc.c" "$SCRIPT_DIR/"
 cp "$SRC_DIR/lz4hc.h" "$SCRIPT_DIR/"
 
