@@ -3,7 +3,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/file_utils.dart';
+import '../../../services/transfer/transfer_manager.dart';
 import '../../../data/models/transfer_session.dart';
+import '../../../data/models/transfer_file.dart';
 import 'progress_bar.dart';
 
 class TransferCard extends StatelessWidget {
@@ -18,6 +21,7 @@ class TransferCard extends StatelessWidget {
     final (statusLabel, statusColor) = _statusInfo(session.status);
     final sizeStr = _formatBytes(session.totalBytes);
     final transferredStr = _formatBytes(session.transferredBytes);
+    final files = TransferManager.instance.filesForSession(session.sessionId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -168,6 +172,12 @@ class TransferCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (files.isNotEmpty) ...[
+            const Gap(12),
+            Divider(height: 1, color: BlinkColors.darkHover.withValues(alpha: 0.2)),
+            const Gap(10),
+            for (final file in files) _FileProgressRow(file: file),
+          ],
         ],
       ),
     ).animate().fadeIn(duration: 400.ms).slideY(
@@ -194,5 +204,66 @@ class TransferCard extends StatelessWidget {
       return '${(bytes / 1048576).toStringAsFixed(1)} MB';
     }
     return '${(bytes / 1073741824).toStringAsFixed(2)} GB';
+  }
+}
+
+class _FileProgressRow extends StatelessWidget {
+  final TransferFile file;
+
+  const _FileProgressRow({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = file.progress;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  file.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Gap(8),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const Gap(6),
+          TransferProgressBar(
+            progress: progress,
+            height: 4,
+            gradientColors: [
+              BlinkColors.primary.withValues(alpha: 0.8),
+              BlinkColors.accent.withValues(alpha: 0.8),
+            ],
+          ),
+          const Gap(4),
+          Text(
+            '${FileUtils.formatSize(file.transferredBytes)} / ${FileUtils.formatSize(file.sizeBytes)}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.3),
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

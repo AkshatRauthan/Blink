@@ -18,6 +18,7 @@ class DiscoveryManager {
   StreamSubscription<String>? _mdnsLostSub;
   StreamSubscription<Device>? _bleSub;
   StreamSubscription<String>? _bleLostSub;
+  bool _running = false;
 
   Stream<Device> get onDeviceFound => _devicesController.stream;
   Stream<String> get onDeviceLost => _lostController.stream;
@@ -27,6 +28,7 @@ class DiscoveryManager {
     required String deviceName,
     required int port,
   }) async {
+    if (_running) return;
     Log.i(
       'Starting discovery manager',
       source: LogSource.service,
@@ -50,9 +52,11 @@ class DiscoveryManager {
     _mdnsLostSub = _mdns.onDeviceLost.listen(_lostController.add);
     _bleSub = _ble.onDeviceDiscovered.listen(_devicesController.add);
     _bleLostSub = _ble.onDeviceLost.listen(_lostController.add);
+    _running = true;
   }
 
   Future<void> stopAll() async {
+    if (!_running) return;
     await _mdnsSub?.cancel();
     _mdnsSub = null;
     await _mdnsLostSub?.cancel();
@@ -67,6 +71,7 @@ class DiscoveryManager {
       _mdns.stopDiscovery(),
       _ble.stopAll(),
     ]);
+    _running = false;
     Log.i(
       'Stopped',
       source: LogSource.service,

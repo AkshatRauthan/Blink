@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -9,15 +10,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../app.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/device.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../../pairing/providers/device_pairing_provider.dart';
 import '../../transfer/providers/file_selection_provider.dart';
 import '../../transfer/providers/transfer_provider.dart';
 import '../../transfer/widgets/file_review_sheet.dart';
+import '../../../services/discovery/discovery_manager.dart';
+import '../../../services/security/key_store_service.dart';
 import '../providers/discovery_provider.dart';
 import '../widgets/device_bubble.dart';
 import '../widgets/radar_painter.dart';
@@ -45,6 +51,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     )..repeat(reverse: true);
+
+    Future.microtask(_startDiscovery);
   }
 
   @override
@@ -66,50 +74,118 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         .toList();
   }
 
-  Future<void> _pickFilesAndSendTo(Device device) async {
-    final filePaths = await _pickFiles();
-    if (filePaths == null || filePaths.isEmpty || !mounted) return;
+  Future<void> _startDiscovery() async {
+    final settings = ref.read(settingsNotifierProvider).value;
+    final displayName = settings?.displayName.trim().isNotEmpty == true
+        ? settings!.displayName.trim()
+        : 'Blink';
 
-    ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
-    if (!mounted) return;
+    if (mounted) {
+      await _ensureNearbyPermissions();
+    }
 
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => FileReviewSheet(
-        onConfirm: () => Navigator.pop(context, true),
-      ),
+    await DiscoveryManager.instance.startAll(
+      deviceId: KeyStoreService.instance.publicKeyBase64,
+      deviceName: displayName,
+      port: AppConstants.transferPort,
     );
+  }
 
-    if (confirmed == true && mounted) {
-      final paths = ref.read(fileSelectionProvider).files.map((f) => f.path).toList();
-      ref.read(fileSelectionProvider.notifier).clear();
-      if (paths.isNotEmpty) _startTransfer(paths, device);
-    } else {
-      ref.read(fileSelectionProvider.notifier).clear();
+  Future<void> _ensureNearbyPermissions() async {
+    if (!Platform.isAndroid) return;
+
+    final results = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.bluetoothAdvertise,
+      Permission.nearbyWifiDevices,
+      Permission.location,
+    ].request();
+
+    final granted = results.values.every((status) => status.isGranted);
+    if (!granted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bluetooth and location are required for discovery.'),
+          backgroundColor: BlinkColors.darkSurface,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
-  Future<void> _pickFilesAndChooseDevice(List<Device> devices) async {
-    final filePaths = await _pickFiles();
-    if (filePaths == null || filePaths.isEmpty || !mounted) return;
-
-    ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
-    if (!mounted) return;
-
+  Future<bool> _showFileReviewSheet() async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => FileReviewSheet(
         onConfirm: () => Navigator.pop(context, true),
+        onAddMore: _handleAddMoreFiles,
       ),
     );
+    return confirmed == true;
+  }
 
-    if (confirmed != true || !mounted) {
-      ref.read(fileSelectionProvider.notifier).clear();
+  Future<void> _handleAddMoreFiles() async {
+    final filePaths = await _pickFiles();
+    if (filePaths == null || filePaths.isEmpty || !mounted) return;
+    ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
+  }
+
+  Future<void> _pairAndSendTo(Device device) async {
+    final sessionId = const Uuid().v4();
+    Uint8List sessionKey;
+    try {
+      sessionKey = await ref
+          .read(devicePairingProvider.notifier)
+          .pairWithDevice(device, sessionId: sessionId);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Pairing failed. Please try again.'),
+          backgroundColor: BlinkColors.darkSurface,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
+    }
+
+    final selection = ref.read(fileSelectionProvider);
+    if (selection.isEmpty) {
+      final filePaths = await _pickFiles();
+      if (filePaths == null || filePaths.isEmpty || !mounted) return;
+
+      ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
+      if (!mounted) return;
+
+      final confirmed = await _showFileReviewSheet();
+      if (!confirmed || !mounted) {
+        ref.read(fileSelectionProvider.notifier).clear();
+        return;
+      }
+    }
+
+    final paths = ref.read(fileSelectionProvider).files.map((f) => f.path).toList();
+    ref.read(fileSelectionProvider.notifier).clear();
+    if (paths.isNotEmpty) _startTransfer(paths, device, sessionKey, sessionId);
+  }
+
+  Future<void> _pickFilesAndChooseDevice(List<Device> devices) async {
+    final selection = ref.read(fileSelectionProvider);
+    if (selection.isEmpty) {
+      final filePaths = await _pickFiles();
+      if (filePaths == null || filePaths.isEmpty || !mounted) return;
+
+      ref.read(fileSelectionProvider.notifier).addFiles(filePaths);
+      if (!mounted) return;
+
+      final confirmed = await _showFileReviewSheet();
+      if (!confirmed || !mounted) {
+        ref.read(fileSelectionProvider.notifier).clear();
+        return;
+      }
     }
 
     final paths = ref.read(fileSelectionProvider).files.map((f) => f.path).toList();
@@ -129,7 +205,22 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     }
 
     if (devices.length == 1) {
-      _startTransfer(paths, devices.first);
+        final sessionId = const Uuid().v4();
+      try {
+        final sessionKey = await ref
+            .read(devicePairingProvider.notifier)
+            .pairWithDevice(devices.first, sessionId: sessionId);
+        _startTransfer(paths, devices.first, sessionKey, sessionId);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Pairing failed. Please try again.'),
+            backgroundColor: BlinkColors.darkSurface,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       return;
     }
 
@@ -142,14 +233,30 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     );
 
     if (selected != null && mounted) {
-      _startTransfer(paths, selected);
+        final sessionId = const Uuid().v4();
+      try {
+        final sessionKey = await ref
+            .read(devicePairingProvider.notifier)
+            .pairWithDevice(selected, sessionId: sessionId);
+        _startTransfer(paths, selected, sessionKey, sessionId);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Pairing failed. Please try again.'),
+            backgroundColor: BlinkColors.darkSurface,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
-  void _startTransfer(List<String> filePaths, Device device) {
-    final sessionKey = Uint8List.fromList(
-      List.generate(32, (_) => Random.secure().nextInt(256)),
-    );
+  void _startTransfer(
+        List<String> filePaths,
+        Device device,
+        Uint8List sessionKey,
+        String sessionId) {
 
     ref.read(transferNotifierProvider.notifier).startSend(
       filePaths: filePaths,
@@ -157,6 +264,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       remoteIp: device.lastKnownIp ?? '',
       remotePort: device.lastKnownPort ?? AppConstants.transferPort,
       sessionKey: sessionKey,
+      sessionId: sessionId,
     );
 
     context.go(AppRoutes.transfers);
@@ -167,17 +275,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     final devicesAsync = ref.watch(discoveryNotifierProvider);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
+    final selection = ref.watch(fileSelectionProvider);
 
     return Scaffold(
       backgroundColor: BlinkColors.darkBackground,
       body: isDesktop
-          ? _buildDesktopLayout(context, devicesAsync)
-          : _buildMobileLayout(context, devicesAsync),
+          ? _buildDesktopLayout(context, devicesAsync, selection.isNotEmpty)
+          : _buildMobileLayout(context, devicesAsync, selection.isNotEmpty),
     );
   }
 
   Widget _buildMobileLayout(
-      BuildContext context, AsyncValue<List<Device>> devicesAsync) {
+      BuildContext context,
+      AsyncValue<List<Device>> devicesAsync,
+      bool hasSelection) {
     final devices = devicesAsync.value ?? [];
 
     return Stack(
@@ -205,7 +316,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           right: 0,
           child: _BottomControls(
             deviceCount: devices.length,
-            onSelectFiles: () => _pickFilesAndChooseDevice(devices),
+            hasSelection: hasSelection,
+            onSelectFiles: () async {
+              if (hasSelection) {
+                await _showFileReviewSheet();
+                return;
+              }
+              await _pickFilesAndChooseDevice(devices);
+            },
           ),
         ),
       ],
@@ -213,7 +331,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   }
 
   Widget _buildDesktopLayout(
-      BuildContext context, AsyncValue<List<Device>> devicesAsync) {
+      BuildContext context,
+      AsyncValue<List<Device>> devicesAsync,
+      bool hasSelection) {
     final devices = devicesAsync.value ?? [];
 
     return Row(
@@ -241,7 +361,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 right: 0,
                 child: Center(
                   child: _SelectFilesButton(
-                    onPressed: () => _pickFilesAndChooseDevice(devices),
+                    onPressed: () async {
+                      if (hasSelection) {
+                        await _showFileReviewSheet();
+                        return;
+                      }
+                      await _pickFilesAndChooseDevice(devices);
+                    },
+                    label: hasSelection ? 'Review Files' : 'Select Files',
                   ),
                 ),
               ),
@@ -262,7 +389,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
           child: _DeviceListPanel(
             devices: devices,
-            onDeviceTap: (device) => _pickFilesAndSendTo(device),
+            onDeviceTap: (device) => _pairAndSendTo(device),
           ),
         ),
       ],
@@ -306,7 +433,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             top: (size.height / 2) + sin(angle) * radius - 40,
             child: DeviceBubble(
               device: device,
-              onTap: () => _pickFilesAndSendTo(device),
+              onTap: () => _pairAndSendTo(device),
             )
                 .animate()
                 .fadeIn(
@@ -492,10 +619,12 @@ class _CentreAvatar extends StatelessWidget {
 
 class _BottomControls extends StatelessWidget {
   final int deviceCount;
+  final bool hasSelection;
   final VoidCallback onSelectFiles;
 
   const _BottomControls({
     required this.deviceCount,
+    required this.hasSelection,
     required this.onSelectFiles,
   });
 
@@ -526,7 +655,10 @@ class _BottomControls extends StatelessWidget {
           _StatusPill(deviceCount: deviceCount),
           const Gap(16),
           // Select files button
-          _SelectFilesButton(onPressed: onSelectFiles),
+          _SelectFilesButton(
+            onPressed: onSelectFiles,
+            label: hasSelection ? 'Review Files' : 'Select Files',
+          ),
         ],
       ),
     );
@@ -594,8 +726,9 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _SelectFilesButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  const _SelectFilesButton({required this.onPressed});
+  final VoidCallback? onPressed;
+  final String label;
+  const _SelectFilesButton({required this.onPressed, this.label = 'Select Files'});
 
   @override
   State<_SelectFilesButton> createState() => _SelectFilesButtonState();
@@ -610,7 +743,7 @@ class _SelectFilesButtonState extends State<_SelectFilesButton> {
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        widget.onPressed();
+        widget.onPressed?.call();
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
@@ -644,9 +777,9 @@ class _SelectFilesButtonState extends State<_SelectFilesButton> {
                 size: 22,
               ),
               const Gap(8),
-              const Text(
-                'Select Files',
-                style: TextStyle(
+              Text(
+                widget.label,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

@@ -11,6 +11,7 @@ class AppSettings {
   final bool compressionEnabled;
   final bool darkMode;
   final bool onboarded;
+  final bool permissionsGranted;
 
   const AppSettings({
     this.displayName = '',
@@ -19,6 +20,7 @@ class AppSettings {
     this.compressionEnabled = true,
     this.darkMode = true,
     this.onboarded = false,
+    this.permissionsGranted = false,
   });
 
   AppSettings copyWith({
@@ -29,6 +31,7 @@ class AppSettings {
     bool? compressionEnabled,
     bool? darkMode,
     bool? onboarded,
+    bool? permissionsGranted,
   }) =>
       AppSettings(
         displayName: displayName ?? this.displayName,
@@ -37,6 +40,7 @@ class AppSettings {
         compressionEnabled: compressionEnabled ?? this.compressionEnabled,
         darkMode: darkMode ?? this.darkMode,
         onboarded: onboarded ?? this.onboarded,
+        permissionsGranted: permissionsGranted ?? this.permissionsGranted,
       );
 }
 
@@ -47,6 +51,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   static const _kCompressionEnabled = 'compression_enabled';
   static const _kDarkMode = 'dark_mode';
   static const _kOnboarded = 'onboarded';
+  static const _kPermissionsGranted = 'permissions_granted';
 
   SettingsRepository get _repo => SettingsRepository.instance;
 
@@ -60,6 +65,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       compressionEnabled: (all[_kCompressionEnabled] ?? '1') == '1',
       darkMode: (all[_kDarkMode] ?? '1') == '1',
       onboarded: (all[_kOnboarded] ?? '0') == '1',
+      permissionsGranted: (all[_kPermissionsGranted] ?? '0') == '1',
     );
   }
 
@@ -111,7 +117,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       compressionEnabled: state.value?.compressionEnabled ?? true,
       darkMode: state.value?.darkMode ?? true,
       onboarded: true,
+      permissionsGranted: state.value?.permissionsGranted ?? false,
     ));
+  }
+
+  Future<void> setPermissionsGranted(bool value) async {
+    await _repo.setBool(_kPermissionsGranted, value);
+    final current = state.value ?? const AppSettings();
+    state = AsyncData(current.copyWith(permissionsGranted: value));
   }
 }
 

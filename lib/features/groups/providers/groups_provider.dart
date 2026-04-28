@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +9,7 @@ import '../../../core/utils/logger.dart';
 import '../../../data/models/contact_group.dart';
 import '../../../data/models/device.dart';
 import '../../../data/repositories/groups_repository.dart';
+import '../../../services/pairing/pairing_handshake_service.dart';
 import '../../../services/transfer/transfer_manager.dart';
 
 class GroupsState {
@@ -122,16 +122,23 @@ class GroupsNotifier extends Notifier<GroupsState> {
     final files = filePaths.map((p) => File(p)).toList();
 
     for (final device in targets) {
-      final sessionKey = Uint8List.fromList(
-        List.generate(32, (_) => Random.secure().nextInt(256)),
-      );
+      final sessionId = const Uuid().v4();
+      Uint8List sessionKey;
       try {
+        final result = await PairingHandshakeService.instance
+            .establishSessionKey(
+          remoteIp: device.lastKnownIp ?? '',
+          remotePort: device.lastKnownPort ?? AppConstants.transferPort,
+          sessionId: sessionId,
+        );
+        sessionKey = result.sessionKey;
         await TransferManager.instance.sendFiles(
           files: files,
           remoteDeviceId: device.deviceId,
           remoteIp: device.lastKnownIp ?? '',
           remotePort: device.lastKnownPort ?? AppConstants.transferPort,
           sessionKey: sessionKey,
+          sessionId: sessionId,
         );
       } catch (e) {
         Log.e(

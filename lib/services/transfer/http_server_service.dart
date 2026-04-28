@@ -13,6 +13,8 @@ import '../../core/constants/app_constants.dart';
 import '../../core/utils/logger.dart';
 import '../../data/models/chat_message.dart';
 import '../native/native_hash_service.dart';
+import '../native/native_crypto_service.dart';
+import '../security/key_store_service.dart';
 import '../security/crypto_service.dart';
 
 /// Metadata for a single file within a transfer session.
@@ -40,6 +42,7 @@ class IncomingFileInfo {
 class IncomingSession {
   final String sessionId;
   final String senderDeviceId;
+  final String senderIp;
   final Uint8List sessionKey;
   final List<IncomingFileInfo> files;
   final String outputDir;
@@ -47,9 +50,24 @@ class IncomingSession {
   IncomingSession({
     required this.sessionId,
     required this.senderDeviceId,
+    required this.senderIp,
     required this.sessionKey,
     required this.files,
     required this.outputDir,
+  });
+}
+
+class IncomingFileMeta {
+  final String fileId;
+  final String fileName;
+  final String mimeType;
+  final int sizeBytes;
+
+  const IncomingFileMeta({
+    required this.fileId,
+    required this.fileName,
+    required this.mimeType,
+    required this.sizeBytes,
   });
 }
 
@@ -57,16 +75,18 @@ class IncomingSession {
 class SessionBeginEvent {
   final String sessionId;
   final String senderDeviceId;
+  final String senderIp;
   final int fileCount;
   final int totalBytes;
-  final List<String> fileNames;
+  final List<IncomingFileMeta> files;
 
   const SessionBeginEvent({
     required this.sessionId,
     required this.senderDeviceId,
+    required this.senderIp,
     required this.fileCount,
     required this.totalBytes,
-    required this.fileNames,
+    required this.files,
   });
 }
 
@@ -134,6 +154,7 @@ class HttpServerService {
     if (_running) return;
 
     final router = Router()
+      ..post('/pairing/handshake', _handlePairingHandshake)
       ..post('/transfer/begin', _handleBegin)
       ..put('/transfer/<sid>/<fileIndex>',
           (Request req, String sid, String fileIndex) =>
@@ -177,10 +198,62 @@ class HttpServerService {
     _sessions[sessionId] = IncomingSession(
       sessionId: sessionId,
       senderDeviceId: '',
+      senderIp: '',
       sessionKey: sessionKey,
       files: [],
       outputDir: '',
     );
+  }
+
+  String? remoteIpForSession(String sessionId) => _sessions[sessionId]?.senderIp;
+
+  Future<Response> _handlePairingHandshake(Request req) async {
+    try {
+      final body = await req.readAsString();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+
+      final sessionId = json['sessionId'] as String? ?? '';
+      final senderDeviceId = json['senderDeviceId'] as String? ?? '';
+      final senderX25519Pub = json['senderX25519Pub'] as String? ?? '';
+      if (sessionId.isEmpty || senderX25519Pub.isEmpty) {
+        return Response(400,
+            body: '{"error":"Missing sessionId or sender key"}',
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      final connection = req.context['shelf.io.connection_info']
+          as HttpConnectionInfo?;
+      final senderIp = connection?.remoteAddress.address ?? '';
+
+      final x25519 = NativeCryptoService.instance.generateX25519KeyPairRaw();
+      final sessionKey = NativeCryptoService.instance.deriveSharedKey(
+        localSecretKey: x25519.secretKey,
+        remotePublicKey: base64Decode(senderX25519Pub),
+      );
+
+      _sessions[sessionId] = IncomingSession(
+        sessionId: sessionId,
+        senderDeviceId: senderDeviceId,
+        senderIp: senderIp,
+        sessionKey: sessionKey,
+        files: [],
+        outputDir: '',
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'sessionId': sessionId,
+          'receiverDeviceId': KeyStoreService.instance.publicKeyBase64,
+          'receiverX25519Pub': base64Encode(x25519.publicKey),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError(
+        body: '{"error":"$e"}',
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
   /// POST /transfer/begin
@@ -195,15 +268,15 @@ class HttpServerService {
 
       final sessionId = json['sessionId'] as String;
       final senderDeviceId = json['senderDeviceId'] as String? ?? '';
-      final sessionKeyB64 = json['sessionKey'] as String?;
       final filesList = json['files'] as List<dynamic>;
+        final connection = req.context['shelf.io.connection_info']
+          as HttpConnectionInfo?;
+        final senderIp = connection?.remoteAddress.address ?? '';
 
       // Resolve or create session key
       Uint8List sessionKey;
       if (_sessions.containsKey(sessionId)) {
         sessionKey = _sessions[sessionId]!.sessionKey;
-      } else if (sessionKeyB64 != null) {
-        sessionKey = base64Decode(sessionKeyB64);
       } else {
         return Response(409,
             body: '{"error":"No session key registered or provided"}',
@@ -221,21 +294,16 @@ class HttpServerService {
         );
       }).toList();
 
-      // Create output directory
-      final String baseDir;
-      if (outputBaseDir != null) {
-        baseDir = outputBaseDir!;
-      } else {
-        final docsDir = await getApplicationDocumentsDirectory();
-        baseDir = docsDir.path;
-      }
-      final outputDir =
-          p.join(baseDir, 'Blink', 'Received', sessionId.substring(0, 8));
+      final baseDir = await _resolveDownloadBaseDir();
+      final outputDir = p.join(baseDir, 'Blink');
       await Directory(outputDir).create(recursive: true);
 
       // Open file sinks
       for (final file in files) {
-        final filePath = p.join(outputDir, file.fileName);
+        final category = _folderForMime(file.mimeType);
+        final fileDir = p.join(outputDir, category);
+        await Directory(fileDir).create(recursive: true);
+        final filePath = p.join(fileDir, file.fileName);
         file.localPath = filePath;
         file.sink = File(filePath).openWrite();
       }
@@ -243,6 +311,9 @@ class HttpServerService {
       _sessions[sessionId] = IncomingSession(
         sessionId: sessionId,
         senderDeviceId: senderDeviceId,
+        senderIp: senderIp.isNotEmpty
+            ? senderIp
+            : _sessions[sessionId]?.senderIp ?? '',
         sessionKey: sessionKey,
         files: files,
         outputDir: outputDir,
@@ -252,9 +323,19 @@ class HttpServerService {
       _beginController.add(SessionBeginEvent(
         sessionId: sessionId,
         senderDeviceId: senderDeviceId,
+        senderIp: senderIp.isNotEmpty
+            ? senderIp
+            : _sessions[sessionId]?.senderIp ?? '',
         fileCount: files.length,
         totalBytes: sessionTotalBytes,
-        fileNames: files.map((f) => f.fileName).toList(),
+        files: files
+            .map((f) => IncomingFileMeta(
+                  fileId: f.fileId,
+                  fileName: f.fileName,
+                  mimeType: f.mimeType,
+                  sizeBytes: f.sizeBytes,
+                ))
+            .toList(),
       ));
 
       Log.i(
@@ -495,12 +576,34 @@ class HttpServerService {
       await f.sink?.close();
     }
     try {
-      final dir = Directory(session.outputDir);
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
+      for (final f in session.files) {
+        if (f.localPath == null) continue;
+        final file = File(f.localPath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
       }
     } catch (_) {}
     _sessions.remove(sessionId);
+  }
+
+  Future<String> _resolveDownloadBaseDir() async {
+    if (outputBaseDir != null) return outputBaseDir!;
+    if (Platform.isAndroid) {
+      final androidDir = Directory('/storage/emulated/0/Download');
+      if (await androidDir.exists()) return androidDir.path;
+    }
+    final downloadsDir = await getDownloadsDirectory();
+    if (downloadsDir != null) return downloadsDir.path;
+    final docsDir = await getApplicationDocumentsDirectory();
+    return docsDir.path;
+  }
+
+  String _folderForMime(String mimeType) {
+    if (mimeType.startsWith('image/')) return 'Image';
+    if (mimeType.startsWith('video/')) return 'Video';
+    if (mimeType.startsWith('audio/')) return 'Music';
+    return 'Document';
   }
 
   Future<void> stop() async {

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../core/constants/app_constants.dart';
 import '../native/native_crypto_service.dart';
 import '../native/native_hash_service.dart';
+import '../../core/utils/file_utils.dart';
 
 /// Arguments passed to the transfer isolate.
 class TransferIsolateArgs {
@@ -233,7 +234,7 @@ Future<bool> _beginSession({
       files.add({
         'fileId': i < args.fileIds.length ? args.fileIds[i] : '$i',
         'fileName': file.uri.pathSegments.last,
-        'mimeType': '',
+        'mimeType': FileUtils.mimeType(file.path),
         'sizeBytes': file.existsSync() ? file.lengthSync() : 0,
         'blake3Checksum': checksum,
       });
@@ -242,7 +243,6 @@ Future<bool> _beginSession({
     req.write(jsonEncode({
       'sessionId': args.sessionId,
       'senderDeviceId': '',
-      'sessionKey': base64Encode(args.sessionKey),
       'files': files,
     }));
 

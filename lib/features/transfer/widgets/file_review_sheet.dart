@@ -10,8 +10,13 @@ import '../providers/file_selection_provider.dart';
 
 class FileReviewSheet extends ConsumerWidget {
   final VoidCallback onConfirm;
+  final Future<void> Function()? onAddMore;
 
-  const FileReviewSheet({super.key, required this.onConfirm});
+  const FileReviewSheet({
+    super.key,
+    required this.onConfirm,
+    this.onAddMore,
+  });
 
   static IconData _iconForExtension(String path) {
     final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
@@ -192,12 +197,53 @@ class FileReviewSheet extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
+                  if (onAddMore != null)
+                    _SecondaryButton(
+                      label: 'Add more',
+                      onTap: onAddMore!,
+                    ),
+                  if (onAddMore != null) const Gap(8),
                   _SendButton(onTap: onConfirm),
                 ],
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  final String label;
+  final Future<void> Function() onTap;
+
+  const _SecondaryButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withValues(alpha: 0.06),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

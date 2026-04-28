@@ -55,7 +55,6 @@ class HttpClientService {
     required int remotePort,
     required String sessionId,
     required String senderDeviceId,
-    required Uint8List sessionKey,
     required List<OutgoingFileInfo> files,
   }) async {
     try {
@@ -68,7 +67,6 @@ class HttpClientService {
       final body = jsonEncode({
         'sessionId': sessionId,
         'senderDeviceId': senderDeviceId,
-        'sessionKey': base64Encode(sessionKey),
         'files': files.map((f) => f.toJson()).toList(),
       });
 

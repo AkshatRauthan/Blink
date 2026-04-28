@@ -51,15 +51,16 @@ class TransferManager {
     required String remoteIp,
     required int remotePort,
     required Uint8List sessionKey,
+    String? sessionId,
   }) async {
-    final sessionId = const Uuid().v4();
+    final resolvedSessionId = sessionId ?? const Uuid().v4();
 
     final transferFiles = <TransferFile>[];
     for (final f in files) {
       transferFiles.add(
         TransferFile(
           fileId: const Uuid().v4(),
-          sessionId: sessionId,
+          sessionId: resolvedSessionId,
           fileName: f.uri.pathSegments.last,
           mimeType: FileUtils.mimeType(f.path),
           sizeBytes: f.lengthSync(),
@@ -70,16 +71,17 @@ class TransferManager {
     final totalBytes = transferFiles.fold<int>(0, (sum, f) => sum + f.sizeBytes);
 
     final session = TransferSession(
-      sessionId: sessionId,
+      sessionId: resolvedSessionId,
       remoteDeviceId: remoteDeviceId,
       direction: TransferDirection.send,
       status: TransferStatus.connecting,
+      fileIds: transferFiles.map((f) => f.fileId).toList(),
       totalBytes: totalBytes,
       startedAt: DateTime.now(),
     );
 
-    _sessions[sessionId] = session;
-    _sessionFiles[sessionId] = transferFiles;
+    _sessions[resolvedSessionId] = session;
+    _sessionFiles[resolvedSessionId] = transferFiles;
 
     await _repo.saveSession(session);
     for (final tf in transferFiles) {
@@ -90,7 +92,7 @@ class TransferManager {
 
     // Spawn transfer isolate
     await _spawnSenderIsolate(
-      sessionId: sessionId,
+      sessionId: resolvedSessionId,
       files: files,
       fileIds: transferFiles.map((f) => f.fileId).toList(),
       sessionKey: sessionKey,
@@ -99,7 +101,7 @@ class TransferManager {
     );
 
     Log.i(
-      'Send session $sessionId started (${files.length} files, ${_formatBytes(totalBytes)})',
+      'Send session $resolvedSessionId started (${files.length} files, ${_formatBytes(totalBytes)})',
       source: LogSource.process,
       component: 'TransferManager',
     );
@@ -226,16 +228,30 @@ class TransferManager {
   void _handleIncomingBegin(SessionBeginEvent event) {
     if (_sessions.containsKey(event.sessionId)) return;
 
+    final transferFiles = event.files
+        .map(
+          (f) => TransferFile(
+            fileId: f.fileId,
+            sessionId: event.sessionId,
+            fileName: f.fileName,
+            mimeType: f.mimeType,
+            sizeBytes: f.sizeBytes,
+          ),
+        )
+        .toList();
+
     final session = TransferSession(
       sessionId: event.sessionId,
       remoteDeviceId: event.senderDeviceId,
       direction: TransferDirection.receive,
       status: TransferStatus.pending,
+      fileIds: transferFiles.map((f) => f.fileId).toList(),
       totalBytes: event.totalBytes,
       startedAt: DateTime.now(),
     );
 
     _sessions[event.sessionId] = session;
+    _sessionFiles[event.sessionId] = transferFiles;
     _progressController.add(session);
 
     Log.i(
@@ -263,6 +279,14 @@ class TransferManager {
 
     if (session.status == TransferStatus.cancelled) return;
 
+    final files = _sessionFiles[event.sessionId];
+    if (files != null && event.fileIndex < files.length) {
+      files[event.fileIndex] = files[event.fileIndex].copyWith(
+        transferredBytes: event.receivedBytes,
+        completed: event.fileComplete,
+      );
+    }
+
     TransferStatus newStatus;
     if (event.sessionComplete) {
       newStatus = TransferStatus.completed;
@@ -272,9 +296,13 @@ class TransferManager {
       newStatus = TransferStatus.transferring;
     }
 
+    final totalTransferred = files?.fold<int>(
+            0, (sum, f) => sum + f.transferredBytes) ??
+        event.receivedBytes;
+
     final updated = session.copyWith(
       status: newStatus,
-      transferredBytes: event.receivedBytes,
+      transferredBytes: totalTransferred,
       completedAt: event.sessionComplete ? DateTime.now() : null,
     );
 

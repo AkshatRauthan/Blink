@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
+import 'features/onboarding/screens/profile_setup_screen.dart';
 import 'features/discovery/screens/discovery_screen.dart';
 import 'features/pairing/screens/qr_show_screen.dart';
 import 'features/pairing/screens/qr_scan_screen.dart';
+import 'features/permissions/screens/permissions_screen.dart';
 import 'features/transfer/screens/send_screen.dart';
 import 'features/transfer/screens/receive_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
@@ -18,6 +20,8 @@ import 'shared/widgets/blink_navigation.dart';
 /// Route path constants — single source of truth.
 abstract class AppRoutes {
   static const onboarding = '/onboarding';
+  static const permissions = '/permissions';
+  static const profileSetup = '/profile-setup';
   static const discovery = '/';
   static const transfers = '/transfers';
   static const chat = '/chat';
@@ -98,11 +102,15 @@ final _routerProvider = Provider<GoRouter>((ref) {
       if (settings == null) return null;
 
       final isOnboarding = state.uri.path == AppRoutes.onboarding;
-
-      if (!settings.onboarded && !isOnboarding) {
+      final isPermissions = state.uri.path == AppRoutes.permissions;
+      final isProfileSetup = state.uri.path == AppRoutes.profileSetup;
+      if (!settings.permissionsGranted && !isOnboarding) {
         return AppRoutes.onboarding;
       }
-      if (settings.onboarded && isOnboarding) {
+      if (settings.permissionsGranted && !settings.onboarded && !isProfileSetup) {
+        return AppRoutes.profileSetup;
+      }
+      if (settings.onboarded && (isOnboarding || isProfileSetup || isPermissions)) {
         return AppRoutes.discovery;
       }
       return null;
@@ -111,6 +119,14 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (_, __) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSetup,
+        builder: (_, __) => const ProfileSetupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.permissions,
+        builder: (_, __) => const PermissionsScreen(),
       ),
 
       ShellRoute(

@@ -7,18 +7,19 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../permissions/providers/permissions_provider.dart';
-import '../../settings/providers/settings_provider.dart';
+import '../providers/onboarding_provider.dart';
 
-class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+class ProfileSetupScreen extends ConsumerStatefulWidget {
+  const ProfileSetupScreen({super.key});
 
   @override
-  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
+class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen>
     with TickerProviderStateMixin {
+  final _nameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   late final AnimationController _pulseController;
   late final AnimationController _orbController;
 
@@ -37,20 +38,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   void dispose() {
+    _nameController.dispose();
     _pulseController.dispose();
     _orbController.dispose();
     super.dispose();
   }
 
   Future<void> _onContinue() async {
-    await ref.read(permissionsNotifierProvider.notifier).requestSelected();
-    final updated = ref.read(permissionsNotifierProvider);
-    if (updated.allGranted && mounted) {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .setPermissionsGranted(true);
-      if (mounted) {
-        context.go(AppRoutes.profileSetup);
+    if (_formKey.currentState?.validate() ?? false) {
+      ref
+          .read(onboardingNotifierProvider.notifier)
+          .setName(_nameController.text.trim());
+      final success =
+          await ref.read(onboardingNotifierProvider.notifier).save();
+      if (success && mounted) {
+        context.go(AppRoutes.discovery);
       }
     }
   }
@@ -60,16 +62,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
-    final permissionsState = ref.watch(permissionsNotifierProvider);
-    final permissionItems = permissionItemsForPlatform();
+    final onboardingState = ref.watch(onboardingNotifierProvider);
 
     return Scaffold(
       backgroundColor: BlinkColors.darkBackground,
       body: Stack(
         children: [
-          // Ambient gradient orbs
           _AmbientOrbs(controller: _orbController),
-
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -80,10 +79,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Form(
+                    key: _formKey,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Logo with pulsing glow
                         _LogoWithGlow(controller: _pulseController)
                             .animate()
                             .fadeIn(duration: 800.ms)
@@ -93,153 +92,122 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               curve: Curves.easeOutBack,
                             ),
                         const Gap(40),
-
-                        // Title
                         Text(
-                          'Blink',
-                          style: theme.textTheme.displayLarge?.copyWith(
+                          'Set up your profile',
+                          style: theme.textTheme.displaySmall?.copyWith(
                             color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 52,
-                            letterSpacing: -2,
+                            fontWeight: FontWeight.w700,
                           ),
                           textAlign: TextAlign.center,
                         )
                             .animate()
-                            .fadeIn(duration: 600.ms, delay: 300.ms)
-                            .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
-
-                        const Gap(8),
-
-                        // Tagline
-                        Text(
-                          'Share anything. Instantly. Privately.',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: BlinkColors.darkTextSecondary,
-                            fontSize: 16,
-                            letterSpacing: 0.3,
-                          ),
-                          textAlign: TextAlign.center,
-                        )
-                            .animate()
-                            .fadeIn(duration: 600.ms, delay: 500.ms)
+                            .fadeIn(duration: 600.ms, delay: 200.ms)
                             .slideY(begin: 0.1, end: 0),
+                        const Gap(12),
+                        Text(
+                          'This name shows up when others find you',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: BlinkColors.darkTextSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        )
+                            .animate()
+                            .fadeIn(duration: 600.ms, delay: 350.ms)
+                            .slideY(begin: 0.05, end: 0),
+                        const Gap(36),
 
-                        const Gap(56),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _nameController,
+                          builder: (context, value, _) {
+                            final trimmed = value.text.trim();
+                            final initial =
+                                trimmed.isEmpty ? '' : trimmed[0].toUpperCase();
+                            return Container(
+                              width: 96,
+                              height: 96,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [BlinkColors.primary, Color(0xFF8B7BFF)],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: BlinkColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 22,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: initial.isEmpty
+                                    ? const Icon(
+                                        Icons.person_rounded,
+                                        color: Colors.white,
+                                        size: 36,
+                                      )
+                                    : Text(
+                                        initial,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 40,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                            );
+                          },
+                        )
+                            .animate()
+                            .fadeIn(duration: 500.ms, delay: 500.ms)
+                            .scale(begin: const Offset(0.85, 0.85), curve: Curves.easeOutBack),
 
-                        // Permissions selection
+                        const Gap(28),
+
                         Container(
-                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: BlinkColors.darkSurface,
                             borderRadius: BorderRadius.circular(16),
+                            color: BlinkColors.darkSurface,
                             border: Border.all(
                               color: BlinkColors.darkHover.withValues(alpha: 0.5),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Permissions',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          child: TextFormField(
+                            controller: _nameController,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: Colors.white,
+                              fontSize: 17,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Your name',
+                              hintStyle: TextStyle(
+                                color: BlinkColors.darkTextTertiary,
+                                fontSize: 17,
                               ),
-                              const Gap(6),
-                              Text(
-                                'Choose what Blink can access on this device.',
-                                style: TextStyle(
-                                  color: BlinkColors.darkTextSecondary,
-                                  fontSize: 13,
-                                ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 18,
                               ),
-                              const Gap(12),
-                              for (final item in permissionItems)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                      Checkbox(
-                                        value: permissionsState.isSelected(item.id),
-                                        onChanged: (value) {
-                                          ref
-                                              .read(permissionsNotifierProvider.notifier)
-                                              .setSelected(item.id, value ?? false);
-                                        },
-                                        activeColor: BlinkColors.primary,
-                                      ),
-                                      const Gap(4),
-                                      Icon(item.icon,
-                                          color: BlinkColors.primary, size: 18),
-                                      const Gap(8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.title,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Text(
-                                              item.description,
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.45),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
+                            ),
+                            validator: (v) =>
+                                (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                            onFieldSubmitted: (_) => _onContinue(),
                           ),
                         )
                             .animate()
-                            .fadeIn(duration: 500.ms, delay: 900.ms)
-                            .slideY(begin: 0.05, end: 0),
+                            .fadeIn(duration: 500.ms, delay: 650.ms)
+                            .slideY(begin: 0.06, end: 0),
 
                         const Gap(24),
 
-                        // CTA Button
                         _GetStartedButton(
                           onPressed: _onContinue,
-                          isLoading: permissionsState.isRequesting,
+                          isLoading: onboardingState.isSaving,
                         )
                             .animate()
-                            .fadeIn(duration: 500.ms, delay: 1000.ms)
+                            .fadeIn(duration: 500.ms, delay: 800.ms)
                             .slideY(begin: 0.08, end: 0),
-
-                        const Gap(40),
-
-                        // Security badges
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _SecurityBadge(
-                              icon: Icons.wifi_off_rounded,
-                              label: '100% Offline',
-                            ),
-                            const Gap(16),
-                            _SecurityBadge(
-                              icon: Icons.lock_rounded,
-                              label: 'E2E Encrypted',
-                            ),
-                            const Gap(16),
-                            _SecurityBadge(
-                              icon: Icons.devices_rounded,
-                              label: 'Cross-Platform',
-                            ),
-                          ],
-                        )
-                            .animate()
-                            .fadeIn(duration: 600.ms, delay: 1200.ms),
                       ],
                     ),
                   ),
@@ -399,8 +367,8 @@ class _GetStartedButtonState extends State<_GetStartedButton> {
                       color: Colors.white,
                     ),
                   )
-                : Text(
-                    'Get Started',
+                : const Text(
+                    'Continue',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,
@@ -411,42 +379,6 @@ class _GetStartedButtonState extends State<_GetStartedButton> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SecurityBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SecurityBadge({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: BlinkColors.darkSurface,
-            border: Border.all(
-              color: BlinkColors.darkHover.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Icon(icon, size: 18, color: BlinkColors.darkTextSecondary),
-        ),
-        const Gap(6),
-        Text(
-          label,
-          style: TextStyle(
-            color: BlinkColors.darkTextTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }
